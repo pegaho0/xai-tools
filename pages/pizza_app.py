@@ -11,7 +11,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.linear_model import LogisticRegression
 
-import shap
+# import shap
 from streamlit_sortables import sort_items
 
 st.set_page_config(page_title="Pizza Recommendation Study", layout="centered")
@@ -224,19 +224,19 @@ def base_feature_from_encoded_name(name: str) -> str:
             return label
     return name
 
-def aggregate_shap_to_study_features(shap_df: pd.DataFrame) -> pd.DataFrame:
-    temp = shap_df.copy()
-    temp["study_feature"] = temp["feature"].apply(base_feature_from_encoded_name)
-    temp["abs_shap"] = temp["shap_value"].abs()
-    out = (
-        temp.groupby("study_feature", as_index=False)["abs_shap"]
-        .sum()
-        .rename(columns={"abs_shap": "importance"})
-        .sort_values("importance", ascending=False)
-        .reset_index(drop=True)
-    )
-    out["xai_rank"] = np.arange(1, len(out) + 1)
-    return out
+# def aggregate_shap_to_study_features(shap_df: pd.DataFrame) -> pd.DataFrame:
+#     temp = shap_df.copy()
+#     temp["study_feature"] = temp["feature"].apply(base_feature_from_encoded_name)
+#     temp["abs_shap"] = temp["shap_value"].abs()
+#     out = (
+#         temp.groupby("study_feature", as_index=False)["abs_shap"]
+#         .sum()
+#         .rename(columns={"abs_shap": "importance"})
+#         .sort_values("importance", ascending=False)
+#         .reset_index(drop=True)
+#     )
+#     out["xai_rank"] = np.arange(1, len(out) + 1)
+#     return out
 
 def ranking_list_to_rank_dict(items):
     return {feature: idx + 1 for idx, feature in enumerate(items)}
@@ -506,8 +506,8 @@ if st.button("Get recommendation", type="primary", use_container_width=True):
         pred_id = meta["pizza_id"]
 
     _, base_value, shap_df = compute_shap_for_row(model, explainer, x)
-    xai_agg = aggregate_shap_to_study_features(shap_df)
-    xai_rank_list = xai_agg["study_feature"].tolist()
+    # xai_agg = aggregate_shap_to_study_features(shap_df)
+    # xai_rank_list = xai_agg["study_feature"].tolist()
 
     st.session_state.result_ready = True
     st.session_state.result_payload = {
