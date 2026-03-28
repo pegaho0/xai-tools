@@ -1,4 +1,6 @@
 import streamlit as st
+import streamlit.components.v1 as components
+from urllib.parse import urlencode
 
 st.set_page_config(page_title="Study Controller", layout="centered")
 
@@ -51,14 +53,30 @@ if errors:
         st.write(f"- {e}")
     st.stop()
 
-st.success("Routing to the correct app...")
-
-# فعلاً فقط app_a = pizza app
+# فعلاً فقط app_a را وصل کرده‌ایم
 if app == "app_a":
-    st.switch_page("pages/pizza_app.py")
-else:
-    st.error(
-        f"{app} is not implemented yet. "
-        f"For now, only app_a is connected."
+    params = urlencode({
+        "pid": pid,
+        "group": group,
+        "app1": app1,
+        "app2": app2,
+        "app3": app3,
+        "step": step,
+        "app": app,
+    })
+    target_url = f"/pizza_app?{params}"
+
+    st.success("Routing to pizza app...")
+
+    components.html(
+        f"""
+        <script>
+            window.top.location.href = "{target_url}";
+        </script>
+        """,
+        height=0,
     )
+    st.stop()
+else:
+    st.error(f"{app} is not implemented yet. For now, only app_a is connected.")
     st.stop()
