@@ -55,7 +55,7 @@ st.success("Routing to the correct app...")
 
 # فعلاً فقط app_a = pizza app
 if app == "app_a":
-    st.switch_page("pages/10_pizza_app.py")
+    st.switch_page("pages/pizza_app.py")
 else:
     st.error(
         f"{app} is not implemented yet. "
