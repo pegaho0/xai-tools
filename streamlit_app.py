@@ -62,18 +62,13 @@ st.session_state["app"] = app
 
 st.success("Routing to pizza app...")
 
-st.write("DEBUG PID:", PID)
-st.write("DEBUG GROUP:", GROUP)
-st.write("DEBUG STEP:", STEP)
-st.write("DEBUG APP:", APP_NAME)
-
 if app == "app_a":
     st.switch_page("pages/pizza_app.py")
 else:
     st.error(f"{app} is not implemented yet. For now, only app_a is connected.")
     st.stop()
 
-st.write("DEBUG PID2:", PID)
-st.write("DEBUG GROUP2:", GROUP)
-st.write("DEBUG STEP:", STEP)
-st.write("DEBUG APP:", APP_NAME)
+st.write("DEBUG pid:", pid)
+st.write("DEBUG group:", group)
+st.write("DEBUG step:", step)
+st.write("DEBUG app:", app)
