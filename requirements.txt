@@ -1,2 +1,1 @@
 streamlit
-pillow==10.4.0
