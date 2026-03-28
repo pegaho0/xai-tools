@@ -1,6 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
-from urllib.parse import urlencode
 
 st.set_page_config(page_title="Study Controller", layout="centered")
 
@@ -53,30 +51,29 @@ if errors:
         st.write(f"- {e}")
     st.stop()
 
-# فعلاً فقط app_a را وصل کرده‌ایم
+# save routing info in session_state
+st.session_state["pid"] = pid
+st.session_state["group"] = group
+st.session_state["app1"] = app1
+st.session_state["app2"] = app2
+st.session_state["app3"] = app3
+st.session_state["step"] = step
+st.session_state["app"] = app
+
+st.success("Routing to pizza app...")
+
+st.write("DEBUG PID:", PID)
+st.write("DEBUG GROUP:", GROUP)
+st.write("DEBUG STEP:", STEP)
+st.write("DEBUG APP:", APP_NAME)
+
 if app == "app_a":
-    params = urlencode({
-        "pid": pid,
-        "group": group,
-        "app1": app1,
-        "app2": app2,
-        "app3": app3,
-        "step": step,
-        "app": app,
-    })
-    target_url = f"/pizza_app?{params}"
-
-    st.success("Routing to pizza app...")
-
-    components.html(
-        f"""
-        <script>
-            window.top.location.href = "{target_url}";
-        </script>
-        """,
-        height=0,
-    )
-    st.stop()
+    st.switch_page("pages/pizza_app.py")
 else:
     st.error(f"{app} is not implemented yet. For now, only app_a is connected.")
     st.stop()
+
+st.write("DEBUG PID2:", PID)
+st.write("DEBUG GROUP2:", GROUP)
+st.write("DEBUG STEP:", STEP)
+st.write("DEBUG APP:", APP_NAME)
