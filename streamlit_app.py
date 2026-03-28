@@ -1,65 +1,64 @@
 import streamlit as st
 
-st.set_page_config(page_title="Pizza Study Controller", layout="centered")
+st.set_page_config(page_title="Study Controller", layout="centered")
 
-# -----------------------------
-# Config
-# -----------------------------
-PAGE_MAP = {
-    ("visual", "app1"): "pages/10_visual_app1.py",
-    ("visual", "app2"): "pages/20_visual_app2.py",
-    ("visual", "app3"): "pages/30_visual_app3.py",
-    ("textual", "app1"): "pages/40_textual_app1.py",
-    ("textual", "app2"): "pages/50_textual_app2.py",
-    ("textual", "app3"): "pages/60_textual_app3.py",
-}
-
-# -----------------------------
-# Read query params
-# Example:
-# ?pid=R_ABC123&group=visual&step=app1&rid=RSP_xxx
-# -----------------------------
 qp = st.query_params
 
-pid = qp.get("pid", "")
-group = qp.get("group", "")
-step = qp.get("step", "")
-rid = qp.get("rid", "")
+def q(name: str) -> str:
+    value = qp.get(name, "")
+    if isinstance(value, list):
+        return value[0] if value else ""
+    return str(value).strip()
+
+pid = q("pid")
+group = q("group")
+app1 = q("app1")
+app2 = q("app2")
+app3 = q("app3")
+step = q("step")
+app = q("app")
+
+VALID_GROUPS = {"visual", "text"}
+VALID_APPS = {"app_a", "app_b", "app_c"}
+VALID_STEPS = {"1", "2", "3"}
 
 st.title("Experiment Controller")
 
-# -----------------------------
-# Validation
-# -----------------------------
+errors = []
+
 if not pid:
-    st.error("Missing participant id (pid). Come here only from Qualtrics.")
+    errors.append("Missing pid")
+if group not in VALID_GROUPS:
+    errors.append("Invalid group. Expected visual or text")
+if app1 not in VALID_APPS:
+    errors.append("Invalid app1")
+if app2 not in VALID_APPS:
+    errors.append("Invalid app2")
+if app3 not in VALID_APPS:
+    errors.append("Invalid app3")
+if step not in VALID_STEPS:
+    errors.append("Invalid step. Expected 1, 2, or 3")
+if app not in VALID_APPS:
+    errors.append("Invalid app")
+
+expected_app = {"1": app1, "2": app2, "3": app3}.get(step)
+if expected_app and app != expected_app:
+    errors.append(f"Step/app mismatch. step={step} should use {expected_app}, but got {app}")
+
+if errors:
+    st.error("Routing error. Please start from Qualtrics.")
+    for e in errors:
+        st.write(f"- {e}")
     st.stop()
 
-if group not in ["visual", "textual"]:
-    st.error("Missing or invalid group. Expected 'visual' or 'textual'.")
+st.success("Routing to the correct app...")
+
+# فعلاً فقط app_a = pizza app
+if app == "app_a":
+    st.switch_page("pages/10_pizza_app.py")
+else:
+    st.error(
+        f"{app} is not implemented yet. "
+        f"For now, only app_a is connected."
+    )
     st.stop()
-
-if step not in ["app1", "app2", "app3"]:
-    st.error("Missing or invalid step. Expected app1, app2, or app3.")
-    st.stop()
-
-target_page = PAGE_MAP.get((group, step))
-if not target_page:
-    st.error("No page found for this condition.")
-    st.stop()
-
-st.info(f"Participant: {pid} | Group: {group} | Step: {step}")
-
-# -----------------------------
-# Auto route
-# -----------------------------
-st.success("Routing you to the correct app...")
-st.switch_page(
-    target_page,
-    query_params={
-        "pid": pid,
-        "group": group,
-        "step": step,
-        "rid": rid,
-    },
-)
