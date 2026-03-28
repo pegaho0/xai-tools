@@ -1,5 +1,2 @@
-streamlit==1.33.0
-# numpy==1.26.4
-# pandas==2.2.2
-# scikit-learn==1.4.2
-# streamlit-sortables==0.3.1
+streamlit
+pillow==10.4.0
