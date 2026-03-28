@@ -1,7 +1,7 @@
-streamlit
-numpy
-pandas
-matplotlib
-scikit-learn
-shap
-streamlit-sortables
+streamlit==1.33.0
+numpy==1.26.4
+pandas==2.2.2
+matplotlib==3.8.4
+scikit-learn==1.4.2
+shap==0.44.1
+streamlit-sortables==0.3.1

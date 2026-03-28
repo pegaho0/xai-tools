@@ -69,7 +69,7 @@ if errors:
 # Survey URLs
 # =========================
 POST_SURVEY_MAP = {
-    "1": "https://concordia.yul1.qualtrics.com/jfe/form/SV_SURVEY1_ID",
+    "1": "https://concordia.yul1.qualtrics.com/jfe/form/SV_2cps8pBYmqBoJxk",
     "2": "https://concordia.yul1.qualtrics.com/jfe/form/SV_SURVEY2_ID",
     "3": "https://concordia.yul1.qualtrics.com/jfe/form/SV_SURVEY3_ID",
 }
