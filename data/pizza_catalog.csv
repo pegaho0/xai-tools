@@ -1,0 +1,9 @@
+pizza_id,name,style,ingredient,dietary_tag,price,customer_rating,free_delivery
+MARGHERITA,Margherita,Italian,Cheese,Vegetarian,18,4.3,Yes
+PEPPERONI,Pepperoni,American,Pepperoni,None,22,4.6,No
+VEGGIE,Veggie Supreme,American,Vegetables,Vegetarian,20,4.4,Yes
+CHICKEN_DELUXE,Chicken Deluxe,American,Chicken,None,26,4.7,No
+MUSHROOM_TRUFFLE,Mushroom Truffle,Italian,Mushrooms,Vegetarian,28,4.8,Yes
+GLUTEN_FREE_GARDEN,Gluten-Free Garden,Italian,Vegetables,Gluten-free,31,4.5,No
+VEGAN_CLASSIC,Vegan Classic,Italian,Vegetables,Vegan,24,4.2,Yes
+DAIRY_FREE_CHICKEN,Dairy-Free Chicken,American,Chicken,Dairy-free,29,4.4,Yes

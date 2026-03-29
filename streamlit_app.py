@@ -1,14 +1,8 @@
 import streamlit as st
 
+from app_core import q
+
 st.set_page_config(page_title="Study Controller", layout="centered")
-
-qp = st.query_params
-
-def q(name: str) -> str:
-    value = qp.get(name, "")
-    if isinstance(value, list):
-        return value[0] if value else ""
-    return str(value).strip()
 
 pid = q("pid")
 group = q("group")
@@ -57,6 +51,10 @@ st.session_state["app"] = app
 
 if app == "app_a":
     st.switch_page("pages/pizza_app.py")
+elif app == "app_b":
+    st.switch_page("pages/tour_app.py")
+elif app == "app_c":
+    st.switch_page("pages/house_app.py")
 else:
-    st.error(f"{app} is not implemented yet.")
+    st.error("Unknown app route.")
     st.stop()
