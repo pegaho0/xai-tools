@@ -4,6 +4,27 @@ HOUSE_SURVEY_MAP = {
     "3": "https://concordia.yul1.qualtrics.com/jfe/form/SV_di1XtEdutYn62Ds",
 }
 
+HOUSE_MENTAL_MODEL_FEATURES = [
+    "Budget",
+    "City",
+    "Property type",
+    "Bedrooms",
+    "Bathrooms",
+    "Area size",
+    "Distance to downtown",
+    "Public transport access",
+    "School quality",
+    "Safety",
+    "Noise level",
+    "Parking",
+    "Garden",
+    "View quality",
+    "Building age",
+    "Investment potential",
+    "Property tax sensitivity",
+    "Family suitability",
+]
+
 HOUSE_FEATURE_GROUP_MAP = {
     "budget": "Budget",
     "city": "City",
