@@ -45,6 +45,47 @@ POST_SURVEY_MAP = {
     "3": "https://concordia.yul1.qualtrics.com/jfe/form/SV_SURVEY3_ID",
 }
 
+def build_return_url(payload: dict) -> str:
+    if STEP not in POST_SURVEY_MAP:
+        st.error("Invalid routing step.")
+        st.stop()
+
+    base_url = POST_SURVEY_MAP[STEP]
+    params = {
+        "pid": PID,
+        "group": GROUP,
+        "app1": APP1,
+        "app2": APP2,
+        "app3": APP3,
+        "step": STEP,
+        "current_app": APP_NAME,
+        "task": "pizza",
+        "rec_id": payload["recommended_pizza_id"],
+        "rec_name": payload["recommended_pizza_name"],
+        "rec_price": payload["recommended_pizza_price"],
+        "max_price": payload["inputs"]["max_price"],
+        "pizza_style": payload["inputs"]["pizza_style"],
+        "ingredient_preference": payload["inputs"]["ingredient_preference"],
+        "dietary_restriction": payload["inputs"]["dietary_restriction"],
+        "dietary_restriction_other_text": payload["inputs"]["dietary_restriction_other_text"],
+        "rating_importance": payload["inputs"]["rating_importance"],
+        "free_delivery_importance": payload["inputs"]["free_delivery_importance"],
+        "mm_rank_max_price": payload["mental_model_ranks"]["Maximum price"],
+        "mm_rank_style": payload["mental_model_ranks"]["Pizza style"],
+        "mm_rank_ingredient": payload["mental_model_ranks"]["Ingredient preference"],
+        "mm_rank_allergy": payload["mental_model_ranks"]["Dietary restriction / allergy"],
+        "mm_rank_rating": payload["mental_model_ranks"]["Importance of customer rating"],
+        "mm_rank_free_delivery": payload["mental_model_ranks"]["Importance of free delivery"],
+        "xai_rank_1": payload["xai_rank_list"][0] if len(payload["xai_rank_list"]) > 0 else "",
+        "xai_rank_2": payload["xai_rank_list"][1] if len(payload["xai_rank_list"]) > 1 else "",
+        "xai_rank_3": payload["xai_rank_list"][2] if len(payload["xai_rank_list"]) > 2 else "",
+        "xai_rank_4": payload["xai_rank_list"][3] if len(payload["xai_rank_list"]) > 3 else "",
+        "xai_rank_5": payload["xai_rank_list"][4] if len(payload["xai_rank_list"]) > 4 else "",
+        "xai_rank_6": payload["xai_rank_list"][5] if len(payload["xai_rank_list"]) > 5 else "",
+        "ts": payload["timestamp"],
+    }
+    return f"{base_url}?{urlencode(params)}"
+
 VALID_GROUPS = {"visual", "text"}
 VALID_APPS = {"app_a", "app_b", "app_c"}
 VALID_STEPS = {"1", "2", "3"}
