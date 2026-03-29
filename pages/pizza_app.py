@@ -266,7 +266,7 @@ def train_model_and_explainer():
         sparse_threshold=1.0,
     )
 
-    clf = LogisticRegression(max_iter=4000, multi_class="auto")
+    clf = LogisticRegression(max_iter=4000)
     pipe = Pipeline([("pre", pre), ("clf", clf)])
     pipe.fit(X, y)
 
