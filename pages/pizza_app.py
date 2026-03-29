@@ -382,7 +382,12 @@ SORTABLE_STYLE = """
 }
 """
 
+GROUP_LABEL_MAP = {
+    "visual": "Visual Explanation",
+    "text": "Text Explanation",
+}
 st.title("🍕 Pizza Recommendation")
+CONDITION_LABEL = GROUP_LABEL_MAP.get(GROUP, "Unknown Condition")
 st.caption(f"{CONDITION_LABEL} • Step {STEP} of 3")
 st.caption(
     "Enter your preferences, rank the factors you think matter most to the AI, "
