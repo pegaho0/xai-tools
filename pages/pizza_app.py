@@ -16,6 +16,7 @@ from streamlit_sortables import sort_items
 
 st.set_page_config(page_title="Pizza Recommendation Study", layout="centered")
 
+# Hide sidebar navigation for participants
 st.markdown(
     """
     <style>
@@ -25,20 +26,75 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-def get_state_value(name: str, default: str = "") -> str:
-    value = st.session_state.get(name, default)
+# =========================
+# Routing values
+# First try session_state (normal controller flow),
+# then fallback to query params (direct testing)
+# =========================
+qp = st.query_params
+
+def q(name: str) -> str:
+    value = qp.get(name, "")
+    if isinstance(value, list):
+        return value[0] if value else ""
+    return str(value).strip()
+
+def get_route_value(name: str, default: str = "") -> str:
+    value = st.session_state.get(name, "")
+    if value is None or str(value).strip() == "":
+        value = q(name)
     if value is None:
         return default
     return str(value).strip()
 
-PID = get_state_value("pid")
-GROUP = get_state_value("group")
-APP1 = get_state_value("app1")
-APP2 = get_state_value("app2")
-APP3 = get_state_value("app3")
-STEP = get_state_value("step")
-APP_NAME = get_state_value("app")
+PID = get_route_value("pid")
+GROUP = get_route_value("group")
+APP1 = get_route_value("app1")
+APP2 = get_route_value("app2")
+APP3 = get_route_value("app3")
+STEP = get_route_value("step")
+APP_NAME = get_route_value("app")
 
+VALID_GROUPS = {"visual", "text"}
+VALID_APPS = {"app_a", "app_b", "app_c"}
+VALID_STEPS = {"1", "2", "3"}
+
+errors = []
+if not PID:
+    errors.append("Missing pid")
+if GROUP not in VALID_GROUPS:
+    errors.append("Invalid group")
+if APP1 not in VALID_APPS:
+    errors.append("Invalid app1")
+if APP2 not in VALID_APPS:
+    errors.append("Invalid app2")
+if APP3 not in VALID_APPS:
+    errors.append("Invalid app3")
+if STEP not in VALID_STEPS:
+    errors.append("Invalid step")
+if APP_NAME not in VALID_APPS:
+    errors.append("Invalid app")
+
+expected_app = {"1": APP1, "2": APP2, "3": APP3}.get(STEP)
+if expected_app and APP_NAME != expected_app:
+    errors.append(f"Expected app {expected_app} for step {STEP}, got {APP_NAME}")
+
+if errors:
+    st.error("Missing routing data. Please start from the main study link or Qualtrics.")
+    st.stop()
+
+# Persist values back into session_state
+st.session_state["pid"] = PID
+st.session_state["group"] = GROUP
+st.session_state["app1"] = APP1
+st.session_state["app2"] = APP2
+st.session_state["app3"] = APP3
+st.session_state["step"] = STEP
+st.session_state["app"] = APP_NAME
+
+# =========================
+# Survey URLs
+# =========================
 POST_SURVEY_MAP = {
     "1": "https://concordia.yul1.qualtrics.com/jfe/form/SV_2cps8pBYmqBoJxk",
     "2": "https://concordia.yul1.qualtrics.com/jfe/form/SV_SURVEY2_ID",
@@ -86,34 +142,18 @@ def build_return_url(payload: dict) -> str:
     }
     return f"{base_url}?{urlencode(params)}"
 
-VALID_GROUPS = {"visual", "text"}
-VALID_APPS = {"app_a", "app_b", "app_c"}
-VALID_STEPS = {"1", "2", "3"}
+# =========================
+# Labels
+# =========================
+GROUP_LABEL_MAP = {
+    "visual": "Visual Explanation",
+    "text": "Text Explanation",
+}
+CONDITION_LABEL = GROUP_LABEL_MAP.get(GROUP, "Unknown Condition")
 
-errors = []
-if not PID:
-    errors.append("Missing pid")
-if GROUP not in VALID_GROUPS:
-    errors.append("Invalid group")
-if APP1 not in VALID_APPS:
-    errors.append("Invalid app1")
-if APP2 not in VALID_APPS:
-    errors.append("Invalid app2")
-if APP3 not in VALID_APPS:
-    errors.append("Invalid app3")
-if STEP not in VALID_STEPS:
-    errors.append("Invalid step")
-if APP_NAME not in VALID_APPS:
-    errors.append("Invalid app")
-
-expected_app = {"1": APP1, "2": APP2, "3": APP3}.get(STEP)
-if expected_app and APP_NAME != expected_app:
-    errors.append(f"Expected app {expected_app} for step {STEP}, got {APP_NAME}")
-
-if errors:
-    st.error("Missing routing data. Please start from the main study link or Qualtrics.")
-    st.stop()
-
+# =========================
+# Pizza catalog
+# =========================
 PIZZAS = [
     {"pizza_id": "MARGHERITA", "name": "Margherita", "style": "Italian", "ingredient": "Cheese", "dietary_tag": "Vegetarian", "price": 18, "customer_rating": 4.3, "free_delivery": "Yes"},
     {"pizza_id": "PEPPERONI", "name": "Pepperoni", "style": "American", "ingredient": "Pepperoni", "dietary_tag": "None", "price": 22, "customer_rating": 4.6, "free_delivery": "No"},
@@ -423,12 +463,7 @@ SORTABLE_STYLE = """
 }
 """
 
-GROUP_LABEL_MAP = {
-    "visual": "Visual Explanation",
-    "text": "Text Explanation",
-}
 st.title("🍕 Pizza Recommendation")
-CONDITION_LABEL = GROUP_LABEL_MAP.get(GROUP, "Unknown Condition")
 st.caption(f"{CONDITION_LABEL} • Step {STEP} of 3")
 st.caption(
     "Enter your preferences, rank the factors you think matter most to the AI, "
