@@ -3,6 +3,7 @@ PIZZA_SURVEY_MAP = {
     "2": "https://concordia.yul1.qualtrics.com/jfe/form/SV_cCRzNs9C9udnXBs",
     "3": "https://concordia.yul1.qualtrics.com/jfe/form/SV_di1XtEdutYn62Ds",
 }
+
 PIZZA_MENTAL_MODEL_FEATURES = [
     "Maximum price",
     "Pizza style",
@@ -38,20 +39,13 @@ FREE_DELIVERY_IMPORTANCE_TO_WEIGHT = {
 }
 
 DIETARY_OPTIONS = [
-    "None", "Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "Other (please specify)"
+    "None",
+    "Vegetarian",
+    "Vegan",
+    "Gluten-free",
+    "Dairy-free",
+    "Other (please specify)",
 ]
-
-PIZZA_CONFIG = {
-    "task_name": "pizza",
-    "bundle_path": "models/pizza_bundle.joblib",
-    "survey_map": PIZZA_SURVEY_MAP,
-    "mental_model_features": PIZZA_MENTAL_MODEL_FEATURES,
-    "feature_group_map": PIZZA_FEATURE_GROUP_MAP,
-    "result_title": "Recommended pizza",
-    "max_shap_display": 10,
-    "visual_caption": "This visual explanation shows which parts of your input pushed the model toward this recommendation and which pushed it away.",
-    "text_caption": "This text explanation summarizes the most influential factors in the recommendation.",
-}
 
 
 def normalize_dietary_for_model(user_choice: str) -> str:
@@ -61,7 +55,10 @@ def normalize_dietary_for_model(user_choice: str) -> str:
 def result_formatter(payload: dict) -> str:
     meta = payload["meta"]
     dietary_note = ""
-    if payload["inputs"].get("dietary_restriction") == "Other (please specify)" and payload["inputs"].get("dietary_restriction_other_text", "").strip():
+    if (
+        payload["inputs"].get("dietary_restriction") == "Other (please specify)"
+        and payload["inputs"].get("dietary_restriction_other_text", "").strip()
+    ):
         dietary_note = f"\n- Reported dietary note: {payload['inputs']['dietary_restriction_other_text']}"
 
     return (
@@ -76,4 +73,55 @@ def result_formatter(payload: dict) -> str:
     )
 
 
-PIZZA_CONFIG["result_formatter"] = result_formatter
+def text_reason_builder(payload: dict) -> list[str]:
+    meta = payload["meta"]
+    inputs = payload["inputs"]
+    reasons = []
+
+    if meta["style"] == inputs["pizza_style"]:
+        reasons.append(f"It matches your preferred pizza style: **{inputs['pizza_style']}**.")
+
+    if meta["ingredient"] == inputs["ingredient_preference"]:
+        reasons.append(f"It matches your preferred ingredient: **{inputs['ingredient_preference']}**.")
+
+    if meta["price"] <= inputs["max_price"]:
+        reasons.append(
+            f"It stays within your budget limit of **${inputs['max_price']} CAD**."
+        )
+    else:
+        reasons.append(
+            f"It is close to your budget preference, even though it is above **${inputs['max_price']} CAD**."
+        )
+
+    if inputs["dietary_restriction"] != "None":
+        reasons.append(
+            f"It fits the dietary preference or restriction you selected: **{inputs['dietary_restriction']}**."
+        )
+
+    if inputs["rating_importance"] in ["Very important", "Extremely important"]:
+        reasons.append(
+            f"You said ratings matter a lot, and this pizza has a customer rating of **{meta['customer_rating']}**."
+        )
+
+    if inputs["free_delivery_importance"] in ["Very important", "Extremely important"] and meta["free_delivery"] == "Yes":
+        reasons.append("You placed high importance on free delivery, and this option includes it.")
+
+    if not reasons:
+        reasons.append("This option best matched the combination of your style, ingredient, and budget preferences.")
+
+    return reasons[:4]
+
+
+PIZZA_CONFIG = {
+    "task_name": "pizza",
+    "bundle_path": "models/pizza_bundle.joblib",
+    "survey_map": PIZZA_SURVEY_MAP,
+    "mental_model_features": PIZZA_MENTAL_MODEL_FEATURES,
+    "feature_group_map": PIZZA_FEATURE_GROUP_MAP,
+    "result_title": "Recommended pizza",
+    "max_shap_display": 10,
+    "visual_caption": "This visual explanation shows the strongest factors that pushed the model toward this pizza recommendation.",
+    "text_caption": "This text explanation summarizes the main reasons this pizza was recommended.",
+    "result_formatter": result_formatter,
+    "text_reason_builder": text_reason_builder,
+}

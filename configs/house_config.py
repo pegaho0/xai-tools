@@ -46,18 +46,6 @@ HOUSE_FEATURE_GROUP_MAP = {
     "family_suitability": "Family suitability",
 }
 
-HOUSE_CONFIG = {
-    "task_name": "house",
-    "bundle_path": "models/house_bundle.joblib",
-    "survey_map": HOUSE_SURVEY_MAP,
-    "mental_model_features": HOUSE_MENTAL_MODEL_FEATURES,
-    "feature_group_map": HOUSE_FEATURE_GROUP_MAP,
-    "result_title": "Recommended house",
-    "max_shap_display": 12,
-    "visual_caption": "This visual explanation shows which inputs had the strongest influence on the house recommendation.",
-    "text_caption": "This text explanation summarizes the most influential factors behind the house recommendation.",
-}
-
 
 def result_formatter(payload: dict) -> str:
     meta = payload["meta"]
@@ -75,4 +63,50 @@ def result_formatter(payload: dict) -> str:
     )
 
 
-HOUSE_CONFIG["result_formatter"] = result_formatter
+def text_reason_builder(payload: dict) -> list[str]:
+    meta = payload["meta"]
+    inputs = payload["inputs"]
+    reasons = []
+
+    if meta["city"] == inputs["city"]:
+        reasons.append(f"It matches your preferred city: **{inputs['city']}**.")
+
+    if meta["property_type"] == inputs["property_type"]:
+        reasons.append(f"It matches your preferred property type: **{inputs['property_type']}**.")
+
+    if meta["price"] <= inputs["budget"]:
+        reasons.append(f"It fits within your budget of **${inputs['budget']} CAD**.")
+    else:
+        reasons.append(f"It is one of the closest matches to your budget of **${inputs['budget']} CAD**.")
+
+    if meta["bedrooms"] >= inputs["bedrooms"]:
+        reasons.append(f"It meets your bedroom preference with **{meta['bedrooms']} bedrooms**.")
+
+    if meta["bathrooms"] >= inputs["bathrooms"]:
+        reasons.append(f"It meets your bathroom preference with **{meta['bathrooms']} bathrooms**.")
+
+    if inputs["parking"] == "Yes" and meta["parking"] == "Yes":
+        reasons.append("You asked for parking, and this property includes parking.")
+
+    if inputs["garden"] == "Yes" and meta["garden"] == "Yes":
+        reasons.append("You asked for a garden or yard, and this property includes one.")
+
+    if not reasons:
+        reasons.append("This property was the strongest overall match for your housing preferences.")
+
+    return reasons[:4]
+
+
+HOUSE_CONFIG = {
+    "task_name": "house",
+    "bundle_path": "models/house_bundle.joblib",
+    "survey_map": HOUSE_SURVEY_MAP,
+    "mental_model_features": HOUSE_MENTAL_MODEL_FEATURES,
+    "feature_group_map": HOUSE_FEATURE_GROUP_MAP,
+    "result_title": "Recommended house",
+    "max_shap_display": 12,
+    "visual_caption": "This visual explanation shows the strongest factors that pushed the model toward this house recommendation.",
+    "text_caption": "This text explanation summarizes the main reasons this house was recommended.",
+    "result_formatter": result_formatter,
+    "text_reason_builder": text_reason_builder,
+}

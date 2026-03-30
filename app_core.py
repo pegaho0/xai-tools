@@ -297,37 +297,65 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
     return f"{base_url}?{urlencode(params)}"
 
 
-def render_generic_result(route: dict, config: dict, payload: dict):
-    group = route["group"]
+def _top_features(payload: dict, n: int = 3):
+    return payload["xai_agg"]["study_feature"].tolist()[:n]
+
+
+def _render_result_card(payload: dict, config: dict):
     st.subheader(config["result_title"])
     st.success(config["result_formatter"](payload))
 
-    if group == "visual":
-        st.subheader("Why this recommendation was made")
-        st.caption(config["visual_caption"])
-        fig = plot_shap_waterfall(payload["shap_df"], base_value=payload["base_value"], max_display=config["max_shap_display"])
-        st.pyplot(fig)
-    else:
-        st.subheader("Why this recommendation was made")
-        st.caption(config["text_caption"])
-        top_features = payload["xai_rank_list"][:3]
-        if len(top_features) >= 3:
-            st.write(
-                f"The recommendation was influenced mostly by **{top_features[0]}**, then **{top_features[1]}**, and then **{top_features[2]}**."
-            )
-        else:
-            st.write("The recommendation was influenced by the most important input features identified by the model.")
 
-    st.subheader("AI feature importance summary")
-    st.dataframe(
-        payload["xai_agg"].rename(columns={
-            "study_feature": "Feature",
-            "importance": "XAI importance",
-            "xai_rank": "XAI rank",
-        }),
-        use_container_width=True,
-        hide_index=True,
+def _render_visual_explanation(config: dict, payload: dict):
+    st.subheader("Why this recommendation was made")
+    st.caption(config["visual_caption"])
+
+    top_features = _top_features(payload, 3)
+    if top_features:
+        st.markdown("**Main factors the model relied on:**")
+        for feature in top_features:
+            st.markdown(f"- **{feature}**")
+
+    fig = plot_shap_waterfall(
+        payload["shap_df"],
+        base_value=payload["base_value"],
+        max_display=config["max_shap_display"],
     )
+    st.pyplot(fig)
+
+
+def _render_text_explanation(config: dict, payload: dict):
+    st.subheader("Why this recommendation was made")
+    st.caption(config["text_caption"])
+
+    builder = config.get("text_reason_builder")
+    reasons = builder(payload) if callable(builder) else []
+
+    if reasons:
+        st.markdown("**Main reasons for this recommendation:**")
+        for reason in reasons[:3]:
+            st.markdown(f"- {reason}")
+    else:
+        top_features = _top_features(payload, 3)
+        if len(top_features) >= 3:
+            st.markdown(
+                f"- The model mainly relied on **{top_features[0]}**, **{top_features[1]}**, and **{top_features[2]}**."
+            )
+        elif top_features:
+            st.markdown(f"- The model mainly relied on **{', '.join(top_features)}**.")
+        else:
+            st.markdown("- The model relied on the most influential inputs in your response.")
+
+
+def render_generic_result(route: dict, config: dict, payload: dict):
+    group = route["group"]
+
+    _render_result_card(payload, config)
+
+    if group == "visual":
+        _render_visual_explanation(config, payload)
+    else:
+        _render_text_explanation(config, payload)
 
 
 def timestamp_now() -> int:
