@@ -7,3 +7,203 @@ HOUSE_CALGARY_VALUE,Calgary Value Home,Calgary,Semi-detached,3,2,1800,460000,Yes
 HOUSE_MTL_FAMILY,Montreal Family Townhouse,Montreal,Townhouse,3,2,1700,590000,Yes,Yes,Good
 HOUSE_QC_CONDO,Quebec City River Condo,Quebec City,Condo,2,1,950,395000,No,No,Excellent
 HOUSE_TORONTO_COMPACT,Toronto Compact Condo,Toronto,Condo,1,1,700,510000,No,No,Good
+NEW_0,Property 0,Toronto,Townhouse,4,3,1500,371219,Yes,No,Good
+NEW_1,Property 1,Montreal,Townhouse,1,2,1700,395733,Yes,No,Good
+NEW_2,Property 2,Toronto,Townhouse,3,2,1500,1013373,Yes,Yes,Good
+NEW_3,Property 3,Toronto,Townhouse,5,1,1500,1064980,Yes,No,Basic
+NEW_4,Property 4,Montreal,Townhouse,4,2,1700,1438086,Yes,No,Basic
+NEW_5,Property 5,Toronto,Condo,3,1,700,1460808,No,No,Basic
+NEW_6,Property 6,Quebec City,Condo,2,2,950,390407,No,Yes,Basic
+NEW_7,Property 7,Calgary,Semi-detached,4,1,1800,1206269,Yes,No,Excellent
+NEW_8,Property 8,Montreal,Townhouse,4,2,1700,125862,Yes,Yes,Excellent
+NEW_9,Property 9,Quebec City,Condo,2,1,950,1229246,No,Yes,Basic
+NEW_10,Property 10,Montreal,Townhouse,1,2,1700,236833,Yes,Yes,Basic
+NEW_11,Property 11,Toronto,Townhouse,5,1,1500,1231058,Yes,Yes,Excellent
+NEW_12,Property 12,Quebec City,Condo,2,1,950,218114,No,No,Excellent
+NEW_13,Property 13,Calgary,Semi-detached,4,1,1800,177572,Yes,Yes,Good
+NEW_14,Property 14,Toronto,Townhouse,5,1,1500,151473,Yes,Yes,Excellent
+NEW_15,Property 15,Toronto,Townhouse,4,2,1500,279954,Yes,Yes,Basic
+NEW_16,Property 16,Toronto,Townhouse,1,2,1500,600174,Yes,No,Basic
+NEW_17,Property 17,Montreal,Condo,3,2,1100,1218660,Yes,No,Excellent
+NEW_18,Property 18,Calgary,Semi-detached,1,1,1800,1107536,Yes,No,Good
+NEW_19,Property 19,Calgary,Semi-detached,2,2,1800,673140,Yes,Yes,Good
+NEW_20,Property 20,Quebec City,Condo,2,1,950,649100,No,No,Excellent
+NEW_21,Property 21,Toronto,Condo,1,3,700,628707,No,No,Good
+NEW_22,Property 22,Toronto,Condo,3,3,700,592453,No,No,Basic
+NEW_23,Property 23,Toronto,Condo,3,2,700,883856,No,Yes,Basic
+NEW_24,Property 24,Toronto,Townhouse,5,2,1500,519123,Yes,No,Good
+NEW_25,Property 25,Toronto,Condo,4,2,700,843435,No,No,Good
+NEW_26,Property 26,Quebec City,Condo,1,2,950,977280,No,Yes,Excellent
+NEW_27,Property 27,Calgary,Semi-detached,4,3,1800,245221,Yes,Yes,Excellent
+NEW_28,Property 28,Toronto,Townhouse,3,2,1500,237743,Yes,Yes,Excellent
+NEW_29,Property 29,Calgary,Semi-detached,1,2,1800,1383400,Yes,No,Excellent
+NEW_30,Property 30,Montreal,Townhouse,4,3,1700,784190,Yes,No,Good
+NEW_31,Property 31,Quebec City,Condo,1,1,950,166736,No,Yes,Good
+NEW_32,Property 32,Calgary,Semi-detached,2,2,1800,403502,Yes,No,Basic
+NEW_33,Property 33,Calgary,Semi-detached,1,2,1800,204645,Yes,Yes,Good
+NEW_34,Property 34,Quebec City,Detached house,1,2,2400,1213431,Yes,Yes,Excellent
+NEW_35,Property 35,Quebec City,Detached house,2,1,2400,886751,Yes,No,Basic
+NEW_36,Property 36,Montreal,Townhouse,5,3,1700,1175589,Yes,Yes,Good
+NEW_37,Property 37,Quebec City,Detached house,2,1,2400,437801,Yes,No,Good
+NEW_38,Property 38,Quebec City,Condo,1,3,950,867354,No,No,Good
+NEW_39,Property 39,Vancouver,Detached house,4,3,3200,626835,Yes,No,Basic
+NEW_40,Property 40,Toronto,Condo,2,3,700,257047,No,Yes,Excellent
+NEW_41,Property 41,Vancouver,Detached house,4,3,3200,206798,Yes,Yes,Excellent
+NEW_42,Property 42,Montreal,Townhouse,2,1,1700,875124,Yes,Yes,Excellent
+NEW_43,Property 43,Montreal,Condo,5,3,1100,286329,Yes,No,Basic
+NEW_44,Property 44,Montreal,Condo,2,2,1100,1234582,Yes,Yes,Good
+NEW_45,Property 45,Toronto,Townhouse,5,2,1500,1489609,Yes,No,Good
+NEW_46,Property 46,Montreal,Condo,4,1,1100,931639,Yes,Yes,Excellent
+NEW_47,Property 47,Quebec City,Detached house,3,1,2400,208492,Yes,No,Good
+NEW_48,Property 48,Calgary,Semi-detached,5,3,1800,1362678,Yes,Yes,Basic
+NEW_49,Property 49,Quebec City,Condo,5,3,950,685326,No,Yes,Excellent
+NEW_50,Property 50,Toronto,Condo,5,3,700,1074123,No,No,Basic
+NEW_51,Property 51,Vancouver,Detached house,5,3,3200,962946,Yes,Yes,Excellent
+NEW_52,Property 52,Montreal,Condo,5,2,1100,164982,Yes,Yes,Good
+NEW_53,Property 53,Toronto,Condo,3,1,700,1260114,No,Yes,Excellent
+NEW_54,Property 54,Calgary,Semi-detached,3,2,1800,1490274,Yes,No,Excellent
+NEW_55,Property 55,Toronto,Townhouse,3,3,1500,150232,Yes,Yes,Good
+NEW_56,Property 56,Quebec City,Detached house,3,2,2400,1398075,Yes,No,Excellent
+NEW_57,Property 57,Toronto,Townhouse,1,1,1500,888310,Yes,No,Basic
+NEW_58,Property 58,Toronto,Condo,1,3,700,1158466,No,Yes,Basic
+NEW_59,Property 59,Vancouver,Detached house,2,2,3200,890791,Yes,No,Good
+NEW_60,Property 60,Toronto,Condo,2,2,700,351884,No,No,Excellent
+NEW_61,Property 61,Montreal,Townhouse,1,1,1700,585593,Yes,Yes,Excellent
+NEW_62,Property 62,Quebec City,Condo,1,2,950,862553,No,No,Basic
+NEW_63,Property 63,Toronto,Townhouse,4,1,1500,150173,Yes,No,Excellent
+NEW_64,Property 64,Calgary,Semi-detached,2,2,1800,1376692,Yes,Yes,Excellent
+NEW_65,Property 65,Vancouver,Detached house,5,3,3200,795855,Yes,No,Excellent
+NEW_66,Property 66,Calgary,Semi-detached,5,3,1800,965457,Yes,Yes,Excellent
+NEW_67,Property 67,Toronto,Condo,5,3,700,859915,No,Yes,Basic
+NEW_68,Property 68,Toronto,Condo,1,2,700,1167850,No,No,Basic
+NEW_69,Property 69,Toronto,Townhouse,5,3,1500,699968,Yes,No,Excellent
+NEW_70,Property 70,Montreal,Townhouse,1,3,1700,1397740,Yes,No,Excellent
+NEW_71,Property 71,Calgary,Semi-detached,1,3,1800,635048,Yes,Yes,Good
+NEW_72,Property 72,Calgary,Semi-detached,4,2,1800,972523,Yes,Yes,Good
+NEW_73,Property 73,Quebec City,Detached house,3,3,2400,809596,Yes,No,Excellent
+NEW_74,Property 74,Toronto,Condo,1,1,700,419180,No,No,Basic
+NEW_75,Property 75,Vancouver,Detached house,3,1,3200,658760,Yes,Yes,Excellent
+NEW_76,Property 76,Toronto,Townhouse,1,2,1500,1463865,Yes,No,Good
+NEW_77,Property 77,Toronto,Townhouse,4,1,1500,926438,Yes,Yes,Good
+NEW_78,Property 78,Vancouver,Detached house,5,2,3200,610508,Yes,No,Basic
+NEW_79,Property 79,Toronto,Townhouse,2,1,1500,1323900,Yes,Yes,Good
+NEW_80,Property 80,Quebec City,Detached house,5,1,2400,594726,Yes,Yes,Basic
+NEW_81,Property 81,Toronto,Townhouse,5,1,1500,1041201,Yes,No,Excellent
+NEW_82,Property 82,Toronto,Townhouse,4,1,1500,425027,Yes,Yes,Basic
+NEW_83,Property 83,Quebec City,Detached house,1,2,2400,157812,Yes,No,Good
+NEW_84,Property 84,Quebec City,Detached house,2,2,2400,164030,Yes,Yes,Good
+NEW_85,Property 85,Montreal,Condo,4,1,1100,591146,Yes,Yes,Excellent
+NEW_86,Property 86,Montreal,Townhouse,3,3,1700,974924,Yes,No,Excellent
+NEW_87,Property 87,Toronto,Townhouse,5,1,1500,1393374,Yes,No,Good
+NEW_88,Property 88,Montreal,Condo,2,1,1100,169625,Yes,Yes,Excellent
+NEW_89,Property 89,Calgary,Semi-detached,5,3,1800,135987,Yes,Yes,Good
+NEW_90,Property 90,Calgary,Semi-detached,2,1,1800,455132,Yes,Yes,Good
+NEW_91,Property 91,Toronto,Condo,2,2,700,587606,No,Yes,Good
+NEW_92,Property 92,Quebec City,Detached house,5,3,2400,1293858,Yes,Yes,Excellent
+NEW_93,Property 93,Calgary,Semi-detached,3,3,1800,244504,Yes,Yes,Excellent
+NEW_94,Property 94,Quebec City,Condo,2,2,950,1448501,No,No,Good
+NEW_95,Property 95,Toronto,Condo,1,1,700,711515,No,Yes,Basic
+NEW_96,Property 96,Quebec City,Condo,1,2,950,717575,No,Yes,Excellent
+NEW_97,Property 97,Quebec City,Condo,5,2,950,250276,No,No,Good
+NEW_98,Property 98,Montreal,Townhouse,2,2,1700,842861,Yes,No,Good
+NEW_99,Property 99,Quebec City,Detached house,3,3,2400,358032,Yes,Yes,Excellent
+NEW_100,Property 100,Montreal,Condo,1,3,1100,459749,Yes,Yes,Excellent
+NEW_101,Property 101,Montreal,Condo,5,3,1100,134031,Yes,Yes,Good
+NEW_102,Property 102,Calgary,Semi-detached,4,3,1800,1207530,Yes,No,Basic
+NEW_103,Property 103,Montreal,Condo,4,3,1100,434143,Yes,No,Good
+NEW_104,Property 104,Montreal,Townhouse,2,2,1700,1091889,Yes,Yes,Excellent
+NEW_105,Property 105,Toronto,Condo,2,2,700,182140,No,Yes,Basic
+NEW_106,Property 106,Montreal,Condo,1,1,1100,912706,Yes,No,Excellent
+NEW_107,Property 107,Quebec City,Detached house,3,2,2400,1481252,Yes,Yes,Basic
+NEW_108,Property 108,Montreal,Condo,5,1,1100,1421309,Yes,Yes,Excellent
+NEW_109,Property 109,Montreal,Condo,1,2,1100,557954,Yes,Yes,Basic
+NEW_110,Property 110,Toronto,Townhouse,1,2,1500,675446,Yes,No,Good
+NEW_111,Property 111,Quebec City,Condo,4,1,950,408573,No,No,Basic
+NEW_112,Property 112,Montreal,Condo,2,3,1100,1095893,Yes,No,Excellent
+NEW_113,Property 113,Toronto,Townhouse,5,1,1500,271801,Yes,Yes,Good
+NEW_114,Property 114,Vancouver,Detached house,4,3,3200,674936,Yes,No,Excellent
+NEW_115,Property 115,Montreal,Condo,4,2,1100,170064,Yes,No,Basic
+NEW_116,Property 116,Calgary,Semi-detached,4,1,1800,899192,Yes,No,Good
+NEW_117,Property 117,Montreal,Condo,1,1,1100,241562,Yes,Yes,Basic
+NEW_118,Property 118,Quebec City,Condo,3,1,950,814198,No,Yes,Basic
+NEW_119,Property 119,Calgary,Semi-detached,5,3,1800,218535,Yes,Yes,Good
+NEW_120,Property 120,Calgary,Semi-detached,5,2,1800,601389,Yes,Yes,Good
+NEW_121,Property 121,Vancouver,Detached house,4,3,3200,797225,Yes,No,Good
+NEW_122,Property 122,Toronto,Condo,4,3,700,306885,No,No,Excellent
+NEW_123,Property 123,Toronto,Condo,4,1,700,1278338,No,Yes,Good
+NEW_124,Property 124,Vancouver,Detached house,5,3,3200,897625,Yes,No,Basic
+NEW_125,Property 125,Quebec City,Detached house,4,3,2400,1202086,Yes,Yes,Good
+NEW_126,Property 126,Quebec City,Detached house,2,2,2400,1377182,Yes,No,Basic
+NEW_127,Property 127,Quebec City,Detached house,2,1,2400,952217,Yes,No,Basic
+NEW_128,Property 128,Quebec City,Detached house,5,1,2400,769854,Yes,Yes,Basic
+NEW_129,Property 129,Vancouver,Detached house,2,2,3200,904463,Yes,Yes,Excellent
+NEW_130,Property 130,Vancouver,Detached house,2,1,3200,1242489,Yes,No,Basic
+NEW_131,Property 131,Quebec City,Detached house,2,3,2400,716033,Yes,No,Good
+NEW_132,Property 132,Quebec City,Condo,4,1,950,445736,No,No,Basic
+NEW_133,Property 133,Quebec City,Condo,3,3,950,235122,No,Yes,Good
+NEW_134,Property 134,Calgary,Semi-detached,2,2,1800,630759,Yes,No,Basic
+NEW_135,Property 135,Quebec City,Condo,1,1,950,279655,No,Yes,Basic
+NEW_136,Property 136,Calgary,Semi-detached,4,1,1800,1068074,Yes,Yes,Basic
+NEW_137,Property 137,Quebec City,Condo,3,2,950,1373904,No,Yes,Excellent
+NEW_138,Property 138,Toronto,Condo,2,1,700,1465032,No,No,Basic
+NEW_139,Property 139,Vancouver,Detached house,3,2,3200,679333,Yes,Yes,Excellent
+NEW_140,Property 140,Toronto,Townhouse,2,3,1500,1081260,Yes,Yes,Basic
+NEW_141,Property 141,Quebec City,Detached house,5,2,2400,915113,Yes,Yes,Good
+NEW_142,Property 142,Montreal,Townhouse,2,1,1700,411045,Yes,Yes,Good
+NEW_143,Property 143,Toronto,Townhouse,5,2,1500,1290953,Yes,Yes,Excellent
+NEW_144,Property 144,Montreal,Townhouse,1,1,1700,827425,Yes,Yes,Basic
+NEW_145,Property 145,Montreal,Condo,1,3,1100,408020,Yes,No,Good
+NEW_146,Property 146,Toronto,Townhouse,1,3,1500,654289,Yes,No,Good
+NEW_147,Property 147,Vancouver,Detached house,3,3,3200,1057624,Yes,Yes,Basic
+NEW_148,Property 148,Montreal,Townhouse,1,1,1700,842737,Yes,Yes,Excellent
+NEW_149,Property 149,Toronto,Condo,5,2,700,233057,No,Yes,Basic
+NEW_150,Property 150,Montreal,Townhouse,3,2,1700,1016314,Yes,No,Basic
+NEW_151,Property 151,Montreal,Townhouse,2,2,1700,543263,Yes,No,Excellent
+NEW_152,Property 152,Vancouver,Detached house,1,3,3200,427699,Yes,No,Basic
+NEW_153,Property 153,Quebec City,Detached house,3,2,2400,1043113,Yes,Yes,Good
+NEW_154,Property 154,Quebec City,Detached house,2,2,2400,462436,Yes,No,Basic
+NEW_155,Property 155,Quebec City,Condo,2,3,950,1068493,No,No,Good
+NEW_156,Property 156,Montreal,Townhouse,5,2,1700,1437023,Yes,No,Good
+NEW_157,Property 157,Toronto,Townhouse,4,2,1500,394455,Yes,No,Basic
+NEW_158,Property 158,Toronto,Condo,5,2,700,1427534,No,Yes,Basic
+NEW_159,Property 159,Toronto,Townhouse,2,1,1500,189090,Yes,No,Excellent
+NEW_160,Property 160,Toronto,Townhouse,2,3,1500,1363625,Yes,Yes,Excellent
+NEW_161,Property 161,Quebec City,Condo,5,2,950,653036,No,Yes,Basic
+NEW_162,Property 162,Montreal,Condo,5,1,1100,341003,Yes,No,Good
+NEW_163,Property 163,Quebec City,Detached house,3,2,2400,857933,Yes,Yes,Basic
+NEW_164,Property 164,Quebec City,Condo,2,3,950,331397,No,No,Basic
+NEW_165,Property 165,Toronto,Condo,4,3,700,1054690,No,No,Basic
+NEW_166,Property 166,Toronto,Townhouse,1,1,1500,832877,Yes,No,Basic
+NEW_167,Property 167,Toronto,Condo,3,3,700,397021,No,No,Basic
+NEW_168,Property 168,Montreal,Condo,2,2,1100,106399,Yes,Yes,Basic
+NEW_169,Property 169,Toronto,Townhouse,4,2,1500,503874,Yes,No,Excellent
+NEW_170,Property 170,Calgary,Semi-detached,4,3,1800,185455,Yes,No,Excellent
+NEW_171,Property 171,Montreal,Condo,5,3,1100,565514,Yes,No,Good
+NEW_172,Property 172,Toronto,Townhouse,1,1,1500,1294962,Yes,No,Excellent
+NEW_173,Property 173,Calgary,Semi-detached,1,3,1800,1277030,Yes,Yes,Good
+NEW_174,Property 174,Toronto,Condo,1,1,700,667521,No,Yes,Basic
+NEW_175,Property 175,Quebec City,Detached house,1,3,2400,1177111,Yes,No,Good
+NEW_176,Property 176,Montreal,Townhouse,2,2,1700,428706,Yes,Yes,Basic
+NEW_177,Property 177,Calgary,Semi-detached,1,2,1800,1006204,Yes,Yes,Good
+NEW_178,Property 178,Montreal,Townhouse,1,3,1700,615719,Yes,No,Good
+NEW_179,Property 179,Toronto,Townhouse,3,1,1500,618944,Yes,Yes,Basic
+NEW_180,Property 180,Montreal,Townhouse,4,3,1700,423987,Yes,No,Basic
+NEW_181,Property 181,Montreal,Condo,5,2,1100,342392,Yes,No,Basic
+NEW_182,Property 182,Quebec City,Condo,5,1,950,1309019,No,No,Excellent
+NEW_183,Property 183,Vancouver,Detached house,1,3,3200,559600,Yes,Yes,Basic
+NEW_184,Property 184,Montreal,Townhouse,1,1,1700,1381010,Yes,Yes,Excellent
+NEW_185,Property 185,Quebec City,Condo,4,3,950,824641,No,No,Basic
+NEW_186,Property 186,Quebec City,Condo,5,1,950,611043,No,Yes,Excellent
+NEW_187,Property 187,Calgary,Semi-detached,2,1,1800,912665,Yes,Yes,Good
+NEW_188,Property 188,Calgary,Semi-detached,5,2,1800,631755,Yes,No,Basic
+NEW_189,Property 189,Vancouver,Detached house,5,2,3200,410174,Yes,Yes,Good
+NEW_190,Property 190,Toronto,Townhouse,1,2,1500,1349865,Yes,No,Good
+NEW_191,Property 191,Montreal,Condo,2,1,1100,907083,Yes,No,Excellent
+NEW_192,Property 192,Montreal,Townhouse,5,2,1700,1068963,Yes,No,Basic
+NEW_193,Property 193,Toronto,Townhouse,3,3,1500,1387277,Yes,No,Excellent
+NEW_194,Property 194,Quebec City,Detached house,4,1,2400,817579,Yes,No,Good
+NEW_195,Property 195,Calgary,Semi-detached,4,2,1800,1088844,Yes,Yes,Basic
+NEW_196,Property 196,Vancouver,Detached house,4,1,3200,762429,Yes,Yes,Good
+NEW_197,Property 197,Quebec City,Condo,3,1,950,1475739,No,No,Excellent
+NEW_198,Property 198,Montreal,Townhouse,5,2,1700,916434,Yes,No,Good
+NEW_199,Property 199,Toronto,Condo,5,1,700,1345529,No,No,Good
