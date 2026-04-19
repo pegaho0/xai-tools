@@ -22,22 +22,6 @@ PIZZA_FEATURE_GROUP_MAP = {
     "free_delivery_importance": "Importance of free delivery",
 }
 
-RATING_IMPORTANCE_TO_WEIGHT = {
-    "Not important": 0.0,
-    "Slightly important": 0.7,
-    "Moderately important": 1.4,
-    "Very important": 2.1,
-    "Extremely important": 2.8,
-}
-
-FREE_DELIVERY_IMPORTANCE_TO_WEIGHT = {
-    "Not important": 0.0,
-    "Slightly important": 0.8,
-    "Moderately important": 1.5,
-    "Very important": 2.2,
-    "Extremely important": 3.0,
-}
-
 DIETARY_OPTIONS = [
     "None",
     "Vegetarian",
@@ -76,40 +60,35 @@ def result_formatter(payload: dict) -> str:
 def text_reason_builder(payload: dict) -> list[str]:
     meta = payload["meta"]
     inputs = payload["inputs"]
-    reasons = []
+    top = payload["xai_agg"].head(6)["study_feature"].tolist()
 
-    if meta["style"] == inputs["pizza_style"]:
-        reasons.append(f"It matches your preferred pizza style: **{inputs['pizza_style']}**.")
+    templates = {
+        "Maximum price": (
+            f"Your budget limit (**${inputs['max_price']} CAD**) influenced which pizzas were strong matches."
+        ),
+        "Pizza style": (
+            f"Your preferred pizza style (**{inputs['pizza_style']}**) contributed to this recommendation."
+        ),
+        "Ingredient preference": (
+            f"Your preferred ingredient (**{inputs['ingredient_preference']}**) was an important factor in the model’s decision."
+        ),
+        "Dietary restriction / allergy": (
+            f"Your dietary selection (**{inputs['dietary_restriction']}**) affected which options were suitable."
+        ),
+        "Importance of customer rating": (
+            f"Your stated importance of ratings (**{inputs['rating_importance']}**) influenced how the model weighed customer scores."
+        ),
+        "Importance of free delivery": (
+            f"Your stated importance of free delivery (**{inputs['free_delivery_importance']}**) contributed to the final recommendation."
+        ),
+    }
 
-    if meta["ingredient"] == inputs["ingredient_preference"]:
-        reasons.append(f"It matches your preferred ingredient: **{inputs['ingredient_preference']}**.")
-
-    if meta["price"] <= inputs["max_price"]:
-        reasons.append(
-            f"It stays within your budget limit of **${inputs['max_price']} CAD**."
-        )
-    else:
-        reasons.append(
-            f"It is close to your budget preference, even though it is above **${inputs['max_price']} CAD**."
-        )
-
-    if inputs["dietary_restriction"] != "None":
-        reasons.append(
-            f"It fits the dietary preference or restriction you selected: **{inputs['dietary_restriction']}**."
-        )
-
-    if inputs["rating_importance"] in ["Very important", "Extremely important"]:
-        reasons.append(
-            f"You said ratings matter a lot, and this pizza has a customer rating of **{meta['customer_rating']}**."
-        )
-
-    if inputs["free_delivery_importance"] in ["Very important", "Extremely important"] and meta["free_delivery"] == "Yes":
-        reasons.append("You placed high importance on free delivery, and this option includes it.")
+    reasons = [templates[f] for f in top if f in templates]
 
     if not reasons:
-        reasons.append("This option best matched the combination of your style, ingredient, and budget preferences.")
+        reasons.append("This pizza was the strongest overall match for the combination of your stated preferences.")
 
-    return reasons[:4]
+    return reasons[:6]
 
 
 PIZZA_CONFIG = {
@@ -119,9 +98,11 @@ PIZZA_CONFIG = {
     "mental_model_features": PIZZA_MENTAL_MODEL_FEATURES,
     "feature_group_map": PIZZA_FEATURE_GROUP_MAP,
     "result_title": "Recommended pizza",
-    "max_shap_display": 10,
-    "visual_caption": "This visual explanation shows the strongest factors that pushed the model toward this pizza recommendation.",
-    "text_caption": "This text explanation summarizes the main reasons this pizza was recommended.",
+    "min_shap_display": 4,
+    "max_shap_display": 6,
+    "max_text_reasons": 6,
+    "visual_caption": "This explanation summarizes the main preference factors the model used when selecting the recommended pizza.",
+    "text_caption": "This explanation summarizes the main preference factors that influenced the pizza recommendation.",
     "result_formatter": result_formatter,
     "text_reason_builder": text_reason_builder,
 }

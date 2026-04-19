@@ -64,37 +64,34 @@ def result_formatter(payload: dict) -> str:
 
 
 def text_reason_builder(payload: dict) -> list[str]:
-    meta = payload["meta"]
     inputs = payload["inputs"]
-    reasons = []
+    ranked = payload["xai_agg"]["study_feature"].tolist()
 
-    if meta["city"] == inputs["city"]:
-        reasons.append(f"It matches your preferred city: **{inputs['city']}**.")
+    templates = {
+        "Budget": f"Your budget (**${inputs['budget']} CAD**) was a key factor in narrowing the available properties.",
+        "City": f"Your preferred city (**{inputs['city']}**) strongly influenced the recommendation.",
+        "Property type": f"Your preferred property type (**{inputs['property_type']}**) contributed to the selected listing.",
+        "Bedrooms": f"Your bedroom preference (**{inputs['bedrooms']}**) was considered in the final match.",
+        "Bathrooms": f"Your bathroom preference (**{inputs['bathrooms']}**) contributed to the recommendation.",
+        "Area size": f"Your minimum preferred area size (**{inputs['area_size']} sq ft**) influenced the final choice.",
+        "Distance to downtown": f"Your preferred distance to downtown (**{inputs['distance_to_downtown']}**) was considered by the model.",
+        "Public transport access": f"Your public transport preference (**{inputs['public_transport_access']}**) contributed to the recommendation.",
+        "School quality": f"Your school-quality preference (**{inputs['school_quality']}**) influenced the final selection.",
+        "Safety": f"Your stated importance of safety (**{inputs['safety']}**) was considered in the decision.",
+        "Noise level": f"Your noise tolerance (**{inputs['noise_level']}**) contributed to the fit of the property.",
+        "Parking": f"Your parking preference (**{inputs['parking']}**) was one of the factors considered.",
+        "Garden": f"Your garden or yard preference (**{inputs['garden']}**) influenced the recommendation.",
+        "View quality": f"Your preferred view quality (**{inputs['view_quality']}**) contributed to the selected property.",
+        "Building age": f"Your building age preference (**{inputs['building_age']}**) was taken into account.",
+        "Investment potential": f"Your interest in investment potential (**{inputs['investment_potential']}**) influenced the recommendation.",
+        "Property tax sensitivity": f"Your property tax sensitivity (**{inputs['property_tax_sensitivity']}**) was considered in the final choice.",
+        "Family suitability": f"Your family suitability preference (**{inputs['family_suitability']}**) contributed to the match.",
+    }
 
-    if meta["property_type"] == inputs["property_type"]:
-        reasons.append(f"It matches your preferred property type: **{inputs['property_type']}**.")
-
-    if meta["price"] <= inputs["budget"]:
-        reasons.append(f"It fits within your budget of **${inputs['budget']} CAD**.")
-    else:
-        reasons.append(f"It is one of the closest matches to your budget of **${inputs['budget']} CAD**.")
-
-    if meta["bedrooms"] >= inputs["bedrooms"]:
-        reasons.append(f"It meets your bedroom preference with **{meta['bedrooms']} bedrooms**.")
-
-    if meta["bathrooms"] >= inputs["bathrooms"]:
-        reasons.append(f"It meets your bathroom preference with **{meta['bathrooms']} bathrooms**.")
-
-    if inputs["parking"] == "Yes" and meta["parking"] == "Yes":
-        reasons.append("You asked for parking, and this property includes parking.")
-
-    if inputs["garden"] == "Yes" and meta["garden"] == "Yes":
-        reasons.append("You asked for a garden or yard, and this property includes one.")
-
+    reasons = [templates[f] for f in ranked if f in templates]
     if not reasons:
         reasons.append("This property was the strongest overall match for your housing preferences.")
-
-    return reasons[:4]
+    return reasons[:6]
 
 
 HOUSE_CONFIG = {
@@ -104,9 +101,11 @@ HOUSE_CONFIG = {
     "mental_model_features": HOUSE_MENTAL_MODEL_FEATURES,
     "feature_group_map": HOUSE_FEATURE_GROUP_MAP,
     "result_title": "Recommended house",
-    "max_shap_display": 12,
-    "visual_caption": "This visual explanation shows the strongest factors that pushed the model toward this house recommendation.",
-    "text_caption": "This text explanation summarizes the main reasons this house was recommended.",
+    "min_features_to_show": 4,
+    "max_shap_display": 6,
+    "max_text_reasons": 6,
+    "visual_caption": "This explanation summarizes the main housing preference signals the model used when selecting the recommended property.",
+    "text_caption": "This explanation summarizes the main housing preference signals that influenced the property recommendation.",
     "result_formatter": result_formatter,
     "text_reason_builder": text_reason_builder,
 }

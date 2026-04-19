@@ -109,13 +109,18 @@ def aggregate_shap_to_study_features(shap_df: pd.DataFrame, feature_group_map: d
     temp = shap_df.copy()
     temp["study_feature"] = temp["feature"].apply(lambda x: base_feature_from_encoded_name(x, feature_group_map))
     temp["abs_shap"] = temp["shap_value"].abs()
+
     out = (
-        temp.groupby("study_feature", as_index=False)["abs_shap"]
-        .sum()
-        .rename(columns={"abs_shap": "importance"})
+        temp.groupby("study_feature", as_index=False)
+        .agg(
+            importance=("abs_shap", "sum"),
+            signed_effect=("shap_value", "sum"),
+        )
         .sort_values("importance", ascending=False)
         .reset_index(drop=True)
     )
+
+    out["direction"] = np.where(out["signed_effect"] >= 0, "push_toward", "push_away")
     out["xai_rank"] = np.arange(1, len(out) + 1)
     return out
 
@@ -123,34 +128,51 @@ def aggregate_shap_to_study_features(shap_df: pd.DataFrame, feature_group_map: d
 def load_bundle(bundle_path: str):
     return joblib.load(bundle_path)
 
-
 def compute_shap_for_row(bundle: dict, x_row: pd.DataFrame):
     pipe = bundle["model"]
     explainer = bundle["explainer"]
     feature_names = bundle["feature_names"]
-    num_features = bundle["num_features"]
 
     pre = pipe.named_steps["pre"]
     clf = pipe.named_steps["clf"]
     x_trans = pre.transform(x_row)
-    x_vec = _to_dense_1d(x_trans)
+
+    # همیشه به dense numeric تبدیل کن
+    if hasattr(x_trans, "toarray"):
+        x_dense = x_trans.toarray().astype(float)
+    else:
+        x_dense = np.asarray(x_trans, dtype=float)
+
+    x_vec = x_dense.ravel()
 
     pred_class = pipe.predict(x_row)[0]
     class_idx = list(clf.classes_).index(pred_class)
 
-    shap_values = explainer.shap_values(x_trans)
+    shap_values = explainer.shap_values(x_dense)
     base_values = explainer.expected_value
 
     if isinstance(shap_values, list):
         sv = np.asarray(shap_values[class_idx]).ravel()
-        bv = float(base_values[class_idx]) if hasattr(base_values, "__len__") else float(base_values)
+        if hasattr(base_values, "__len__"):
+            bv = float(base_values[class_idx])
+        else:
+            bv = float(base_values)
     else:
         arr = np.asarray(shap_values)
         if arr.ndim == 3:
-            sv = arr[0, class_idx, :].ravel()
+            sv = arr[0, :, class_idx]
+        elif arr.ndim == 2:
+            sv = arr[0, :]
         else:
             sv = arr.ravel()
-        bv = float(base_values[class_idx]) if hasattr(base_values, "__len__") else float(base_values)
+
+        if hasattr(base_values, "__len__"):
+            if len(np.asarray(base_values).shape) > 0 and len(base_values) > class_idx:
+                bv = float(base_values[class_idx])
+            else:
+                bv = float(np.asarray(base_values).ravel()[0])
+        else:
+            bv = float(base_values)
 
     n = min(len(feature_names), len(x_vec), len(sv))
     df = pd.DataFrame({
@@ -158,26 +180,55 @@ def compute_shap_for_row(bundle: dict, x_row: pd.DataFrame):
         "value": x_vec[:n],
         "shap_value": sv[:n],
     })
-    is_numeric = df["feature"].isin(num_features)
-    active = (df["value"] != 0) | is_numeric
-    df = df[active].copy()
+
     df["abs"] = df["shap_value"].abs()
-    df = df.sort_values("abs", ascending=False).drop(columns=["abs"])
+    df = df.sort_values("abs", ascending=False).drop(columns=["abs"]).reset_index(drop=True)
     return pred_class, bv, df
+    
+def _build_agg_plot_df(payload: dict, max_display: int, min_display: int = 4):
+    agg = payload["xai_agg"].copy()
+    if agg.empty:
+        return agg
 
+    display_n = min(len(agg), max(max_display, min_display))
+    display_n = min(display_n, len(agg))
 
-def plot_shap_waterfall(shap_df: pd.DataFrame, base_value: float, max_display: int = 10):
-    top = shap_df.head(max_display).copy()
-    exp = shap.Explanation(
-        values=top["shap_value"].values,
-        base_values=base_value,
-        data=top["value"].values,
-        feature_names=top["feature"].tolist(),
+    top = agg.head(display_n).copy()
+    top["signed_plot_value"] = np.where(
+        top["direction"] == "push_toward",
+        top["importance"],
+        -top["importance"],
     )
-    plt.figure(figsize=(10, 5))
-    shap.plots.waterfall(exp, show=False, max_display=max_display)
+    top = top.sort_values("signed_plot_value")
+    return top
+
+
+def plot_grouped_explanation_bar(payload: dict, max_display: int = 6, min_display: int = 4):
+    top = _build_agg_plot_df(payload, max_display=max_display, min_display=min_display)
+    if top.empty:
+        return None
+
+    fig_height = max(4.8, 0.7 * len(top) + 1.8)
+    fig, ax = plt.subplots(figsize=(10, fig_height))
+
+    colors = ["#1E88E5" if v < 0 else "#D81B60" for v in top["signed_plot_value"]]
+    ax.barh(top["study_feature"], top["signed_plot_value"], color=colors)
+    ax.axvline(0, color="black", linewidth=1)
+
+    ax.set_xlabel("Contribution strength")
+    ax.set_ylabel("")
+    ax.set_title("Most influential factors in this recommendation")
+
+    max_abs = max(top["signed_plot_value"].abs().max(), 1e-6)
+    offset = 0.03 * max_abs
+
+    for i, v in enumerate(top["signed_plot_value"]):
+        ha = "left" if v >= 0 else "right"
+        x_pos = v + offset if v >= 0 else v - offset
+        ax.text(x_pos, i, f"{abs(v):.2f}", va="center", ha=ha, fontsize=10)
+
     plt.tight_layout()
-    return plt.gcf()
+    return fig
 
 
 def init_result_state(task_key: str):
@@ -281,8 +332,10 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
     return f"{base_url}?{urlencode(params)}"
 
 
-def _top_features(payload: dict, n: int = 3):
-    return payload["xai_agg"]["study_feature"].tolist()[:n]
+def _top_features(payload: dict, n: int = 6, min_n: int = 4):
+    agg = payload["xai_agg"]["study_feature"].tolist()
+    k = min(len(agg), max(n, min_n))
+    return agg[:k]
 
 
 def _render_result_card(payload: dict, config: dict):
@@ -290,22 +343,43 @@ def _render_result_card(payload: dict, config: dict):
     st.success(config["result_formatter"](payload))
 
 
+def _default_reason_builder(payload: dict):
+    reasons = []
+    top = payload["xai_agg"].head(6)
+
+    for _, row in top.iterrows():
+        feature = row["study_feature"]
+        direction = row["direction"]
+        if direction == "push_toward":
+            reasons.append(f"{feature} supported this recommendation.")
+        else:
+            reasons.append(f"{feature} had a weaker fit, but the model still selected this option overall.")
+
+    return reasons
+
+
 def _render_visual_explanation(config: dict, payload: dict):
     st.subheader("Why this recommendation was made")
     st.caption(config["visual_caption"])
 
-    top_features = _top_features(payload, 3)
-    if top_features:
-        st.markdown("**Main factors the model relied on:**")
-        for feature in top_features:
-            st.markdown(f"- **{feature}**")
-
-    fig = plot_shap_waterfall(
-        payload["shap_df"],
-        base_value=payload["base_value"],
-        max_display=config["max_shap_display"],
+    top_features = _top_features(
+        payload,
+        n=config.get("max_shap_display", 6),
+        min_n=config.get("min_shap_display", 4),
     )
-    st.pyplot(fig)
+
+    if top_features:
+        st.markdown("**Main factors the model considered:**")
+        for i, feature in enumerate(top_features, start=1):
+            st.markdown(f"{i}. **{feature}**")
+
+    fig = plot_grouped_explanation_bar(
+        payload,
+        max_display=config.get("max_shap_display", 6),
+        min_display=config.get("min_shap_display", 4),
+    )
+    if fig is not None:
+        st.pyplot(fig)
 
 
 def _render_text_explanation(config: dict, payload: dict):
@@ -313,20 +387,20 @@ def _render_text_explanation(config: dict, payload: dict):
     st.caption(config["text_caption"])
 
     builder = config.get("text_reason_builder")
-    reasons = builder(payload) if callable(builder) else []
+    reasons = builder(payload) if callable(builder) else _default_reason_builder(payload)
 
     if reasons:
         st.markdown("**Main reasons for this recommendation:**")
-        for reason in reasons[:3]:
+        for reason in reasons[: max(4, config.get("max_text_reasons", 6))]:
             st.markdown(f"- {reason}")
     else:
-        top_features = _top_features(payload, 3)
-        if len(top_features) >= 3:
-            st.markdown(
-                f"- The model mainly relied on **{top_features[0]}**, **{top_features[1]}**, and **{top_features[2]}**."
-            )
-        elif top_features:
-            st.markdown(f"- The model mainly relied on **{', '.join(top_features)}**.")
+        top_features = _top_features(
+            payload,
+            n=config.get("max_shap_display", 6),
+            min_n=config.get("min_shap_display", 4),
+        )
+        if top_features:
+            st.markdown(f"- The model mainly considered: **{', '.join(top_features)}**.")
         else:
             st.markdown("- The model relied on the most influential inputs in your response.")
 

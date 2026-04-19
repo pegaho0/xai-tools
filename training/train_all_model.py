@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import shap
 from sklearn.compose import ColumnTransformer
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -15,42 +15,49 @@ MODEL_DIR = ROOT / "models"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def train_and_save_bundle(df, feature_cols, target_col, num_features, output_path):
+def train_and_save_bundle(df, feature_cols, target_col, num_features, output_path, random_state=42):
     cat_features = [c for c in feature_cols if c not in num_features]
 
     X = df[feature_cols].copy()
     y = df[target_col].copy()
 
     pre = ColumnTransformer(
-        transformers=[
-            ("cat", OneHotEncoder(handle_unknown="ignore"), cat_features),
-            ("num", StandardScaler(), num_features),
-        ],
-        remainder="drop",
-        sparse_threshold=1.0,
+    transformers=[
+        ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), cat_features),
+        ("num", StandardScaler(), num_features),
+    ],
+    remainder="drop",
+    sparse_threshold=0.0,
     )
 
-    clf = LogisticRegression(max_iter=4000)
+    clf = RandomForestClassifier(
+        n_estimators=350,
+        max_depth=12,
+        min_samples_leaf=3,
+        random_state=random_state,
+        n_jobs=-1,
+        class_weight="balanced_subsample",
+    )
+
     pipe = Pipeline([("pre", pre), ("clf", clf)])
     pipe.fit(X, y)
 
     feature_names = pipe.named_steps["pre"].get_feature_names_out().tolist()
     feature_names = [n.replace("cat__", "").replace("num__", "") for n in feature_names]
 
-    X_bg = X.sample(n=min(300, len(X)), random_state=42)
+    X_bg = X.sample(n=min(250, len(X)), random_state=random_state)
     X_bg_trans = pipe.named_steps["pre"].transform(X_bg)
+    X_bg_dense = X_bg_trans.toarray() if hasattr(X_bg_trans, "toarray") else np.asarray(X_bg_trans)
 
-    explainer = shap.LinearExplainer(
-        pipe.named_steps["clf"],
-        X_bg_trans,
-        feature_perturbation="interventional",
-    )
+    explainer = shap.TreeExplainer(pipe.named_steps["clf"])
 
     bundle = {
         "model": pipe,
         "explainer": explainer,
         "feature_names": feature_names,
         "num_features": num_features,
+        "background_data": X_bg_dense,
+        "model_type": "tree",
     }
 
     joblib.dump(bundle, output_path)
@@ -75,7 +82,7 @@ def create_pizza_catalog():
     return df
 
 
-def generate_pizza_training(n=3500, seed=7):
+def generate_pizza_training(n=5000, seed=7):
     rng = np.random.default_rng(seed)
     catalog = pd.read_csv(DATA_DIR / "pizza_catalog.csv")
     pizzas = catalog.to_dict(orient="records")
@@ -94,24 +101,28 @@ def generate_pizza_training(n=3500, seed=7):
         return True
 
     rating_weights = {
-        "Not important": 0.0,
-        "Slightly important": 0.7,
-        "Moderately important": 1.4,
-        "Very important": 2.1,
-        "Extremely important": 2.8,
+        "Not important": 0.2,
+        "Slightly important": 0.6,
+        "Moderately important": 1.0,
+        "Very important": 1.5,
+        "Extremely important": 2.0,
     }
     delivery_weights = {
-        "Not important": 0.0,
-        "Slightly important": 0.8,
-        "Moderately important": 1.5,
-        "Very important": 2.2,
-        "Extremely important": 3.0,
+        "Not important": 0.1,
+        "Slightly important": 0.5,
+        "Moderately important": 0.9,
+        "Very important": 1.3,
+        "Extremely important": 1.8,
     }
 
     max_price = rng.integers(15, 51, size=n)
-    pizza_style = rng.choice(["Italian", "American"], size=n, p=[0.55, 0.45])
+    pizza_style = rng.choice(["Italian", "American"], size=n, p=[0.52, 0.48])
     ingredient_preference = rng.choice(["Cheese", "Pepperoni", "Chicken", "Vegetables", "Mushrooms"], size=n)
-    dietary_restriction_model = rng.choice(["None", "Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "Other"], size=n)
+    dietary_restriction_model = rng.choice(
+        ["None", "Vegetarian", "Vegan", "Gluten-free", "Dairy-free", "Other"],
+        size=n,
+        p=[0.45, 0.18, 0.10, 0.10, 0.09, 0.08]
+    )
     rating_importance = rng.choice(list(rating_weights.keys()), size=n)
     free_delivery_importance = rng.choice(list(delivery_weights.keys()), size=n)
 
@@ -124,27 +135,47 @@ def generate_pizza_training(n=3500, seed=7):
         ri = rating_importance[i]
         fdi = free_delivery_importance[i]
 
-        affordable = [p for p in pizzas if p["price"] <= mp]
-        if not affordable:
-            affordable = [min(pizzas, key=lambda x: x["price"])]
-
-        compatible = [p for p in affordable if is_compatible(p["dietary_tag"], dr)]
-        candidates = compatible if compatible else affordable
-
         def score(p):
             s = 0.0
-            s += 2.2 if p["style"] == stl else 0.0
-            s += 2.6 if p["ingredient"] == ing else 0.0
-            s += 3.5 if is_compatible(p["dietary_tag"], dr) else -3.5
-            s += rating_weights[ri] * (p["customer_rating"] - 4.0) * 2.2
-            s += delivery_weights[fdi] if p["free_delivery"] == "Yes" else 0.0
-            gap = max(0, p["price"] - mp)
-            s -= 1.8 * gap
-            s -= 0.05 * p["price"]
-            s += rng.normal(0, 0.35)
+
+            if p["style"] == stl:
+                s += 1.8
+
+            if p["ingredient"] == ing:
+                s += 2.0
+
+            if is_compatible(p["dietary_tag"], dr):
+                s += 2.4
+            else:
+                s -= 4.0
+
+            s += rating_weights[ri] * (p["customer_rating"] - 4.0) * 2.0
+
+            if p["free_delivery"] == "Yes":
+                s += delivery_weights[fdi]
+
+            price_gap = p["price"] - mp
+            if price_gap <= 0:
+                s += 1.2 - 0.03 * abs(price_gap)
+            else:
+                s -= 1.8 * price_gap
+
+            if mp <= 22:
+                s -= 0.08 * p["price"]
+            elif mp >= 30:
+                s -= 0.02 * p["price"]
+
+            if dr in ["Vegetarian", "Vegan"] and p["ingredient"] == "Vegetables":
+                s += 0.8
+            if stl == "Italian" and p["ingredient"] in ["Mushrooms", "Cheese", "Vegetables"]:
+                s += 0.5
+            if stl == "American" and p["ingredient"] in ["Pepperoni", "Chicken"]:
+                s += 0.5
+
+            s += rng.normal(0, 0.65)
             return s
 
-        labels.append(max(candidates, key=score)["pizza_id"])
+        labels.append(max(pizzas, key=score)["pizza_id"])
 
     return pd.DataFrame({
         "max_price": max_price,
@@ -224,7 +255,7 @@ def generate_tour_training(n=5000, seed=11):
                 s += 1.2
             if user["food_interest"] == "High" and t["region"] in ["Asia", "Europe"]:
                 s += 0.8
-            s += rng.normal(0, 0.35)
+            s += rng.normal(0, 0.4)
             return s
 
         labels.append(max(tours, key=score)["tour_id"])
@@ -320,7 +351,7 @@ def generate_house_training(n=6000, seed=17):
                 s += 1.2
             if user["investment_potential"] == "High" and h["city"] in ["Toronto", "Vancouver", "Montreal"]:
                 s += 1.0
-            s += rng.normal(0, 0.35)
+            s += rng.normal(0, 0.4)
             return s
 
         labels.append(max(houses, key=score)["house_id"])
@@ -363,6 +394,7 @@ def main():
         target_col="target",
         num_features=["max_price"],
         output_path=MODEL_DIR / "pizza_bundle.joblib",
+        random_state=42,
     )
 
     create_tour_catalog()
@@ -377,6 +409,7 @@ def main():
         target_col="target",
         num_features=["budget"],
         output_path=MODEL_DIR / "tour_bundle.joblib",
+        random_state=42,
     )
 
     create_house_catalog()
@@ -392,6 +425,7 @@ def main():
         target_col="target",
         num_features=["budget", "bedrooms", "bathrooms", "area_size"],
         output_path=MODEL_DIR / "house_bundle.joblib",
+        random_state=42,
     )
 
     print("All data files and model bundles were created successfully.")
