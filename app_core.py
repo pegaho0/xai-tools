@@ -8,55 +8,11 @@ import numpy as np
 import pandas as pd
 import shap
 import streamlit as st
-from streamlit_sortables import sort_items
 
 
 VALID_GROUPS = {"visual", "text"}
 VALID_APPS = {"app_a", "app_b", "app_c"}
 VALID_STEPS = {"1", "2", "3"}
-
-SORTABLE_STYLE = """
-.sortable-component { background-color: transparent; padding: 0; border: none; }
-.sortable-container { background-color: transparent; padding: 0; border: none; counter-reset: rankitem; }
-.sortable-container-header { display: none; }
-.sortable-container-body { background-color: transparent; padding: 0; }
-.sortable-item {
-    position: relative;
-    display: flex;
-    align-items: center;
-    min-height: 58px;
-    margin: 0 0 12px 26px;
-    padding: 10px 14px 10px 42px;
-    background: #fafafa;
-    border: 1px solid #d5d9de;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    color: #1f2937;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-}
-.sortable-item::before {
-    counter-increment: rankitem;
-    content: counter(rankitem) ".";
-    position: absolute;
-    left: -22px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #111827;
-    font-size: 17px;
-    font-weight: 700;
-}
-.sortable-item::after {
-    content: "⋮⋮";
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #9aa0a6;
-    font-size: 18px;
-    letter-spacing: -2px;
-}
-"""
 
 
 def hide_sidebar_nav():
@@ -136,10 +92,6 @@ def validate_and_store_route():
     return route
 
 
-def ranking_list_to_rank_dict(items):
-    return {feature: idx + 1 for idx, feature in enumerate(items)}
-
-
 def _to_dense_1d(mat):
     if hasattr(mat, "toarray"):
         return np.asarray(mat.toarray()).ravel()
@@ -169,8 +121,7 @@ def aggregate_shap_to_study_features(shap_df: pd.DataFrame, feature_group_map: d
 
 
 def load_bundle(bundle_path: str):
-    bundle = joblib.load(bundle_path)
-    return bundle
+    return joblib.load(bundle_path)
 
 
 def compute_shap_for_row(bundle: dict, x_row: pd.DataFrame):
@@ -232,35 +183,68 @@ def plot_shap_waterfall(shap_df: pd.DataFrame, base_value: float, max_display: i
 def init_result_state(task_key: str):
     result_ready_key = f"{task_key}_result_ready"
     result_payload_key = f"{task_key}_result_payload"
-    mm_order_key = f"{task_key}_mental_model_order"
+    mm_rating_key = f"{task_key}_mental_model_ratings"
 
     if result_ready_key not in st.session_state:
         st.session_state[result_ready_key] = False
     if result_payload_key not in st.session_state:
         st.session_state[result_payload_key] = None
-    return result_ready_key, result_payload_key, mm_order_key
+
+    return result_ready_key, result_payload_key, mm_rating_key
 
 
-def render_mental_model_sort(feature_labels: list, state_key: str):
+def render_mental_model_rating(feature_labels: list, state_key: str):
     if state_key not in st.session_state:
-        st.session_state[state_key] = feature_labels.copy()
+        st.session_state[state_key] = {}
+
+    rating_options = {
+        "Not important at all": 1,
+        "Slightly important": 2,
+        "Moderately important": 3,
+        "Important": 4,
+        "Very important": 5,
+    }
 
     st.subheader("Before seeing the AI explanation")
-    st.caption("Drag the items to rank them from most influential to least influential in the AI recommendation.")
-    st.caption("Top = most influential • Bottom = least influential")
+    st.caption("Please rate how important each factor is, in your opinion, in influencing the AI’s recommendation.")
 
-    sorted_items = sort_items(
-        [{"header": "", "items": st.session_state[state_key]}],
-        multi_containers=True,
-        custom_style=SORTABLE_STYLE,
-        key=f"sortable_{state_key}",
-    )
+    ratings = {}
+    all_answered = True
 
-    if isinstance(sorted_items, list) and len(sorted_items) > 0 and isinstance(sorted_items[0], dict):
-        if "items" in sorted_items[0]:
-            st.session_state[state_key] = sorted_items[0]["items"]
+    for feature in feature_labels:
+        key = f"{state_key}_{feature}"
 
-    return st.session_state[state_key]
+        col1, col2 = st.columns([1.2, 3.2])
+
+        with col1:
+            st.markdown(
+                f"""
+                <div style="font-weight:600; font-size:15px; padding-top:8px;">
+                    {feature} <span style="color:red">*</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with col2:
+            selected = st.radio(
+                label=f"Rate {feature}",
+                options=list(rating_options.keys()),
+                index=None,
+                horizontal=True,
+                label_visibility="collapsed",
+                key=key,
+            )
+
+        if selected is None:
+            all_answered = False
+        else:
+            ratings[feature] = rating_options[selected]
+
+        st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
+
+    st.session_state[state_key] = ratings
+    return ratings, all_answered
 
 
 def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
@@ -287,9 +271,9 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
     for k, v in payload["inputs"].items():
         params[k] = v
 
-    for k, v in payload["mental_model_ranks"].items():
+    for k, v in payload["mental_model_ratings"].items():
         safe_key = k.lower().replace(" ", "_").replace("/", "_").replace("-", "_")
-        params[f"mm_rank_{safe_key}"] = v
+        params[f"mm_rating_{safe_key}"] = v
 
     for i, item in enumerate(payload["xai_rank_list"], start=1):
         params[f"xai_rank_{i}"] = item
