@@ -1,0 +1,9 @@
+tour_id,tour_name,region,climate,travel_style,group_type,trip_duration,price,rating
+TOUR_PARIS,Paris Culture Escape,Europe,Mild,Culture,Couple,Medium,2600,4.7
+TOUR_SWISS,Swiss Alps Adventure,Europe,Cold,Adventure,Friends,Long,4200,4.8
+TOUR_THAI,Thailand Relax Retreat,Asia,Warm,Relaxation,Couple,Medium,2400,4.6
+TOUR_JAPAN,Japan City and Food Tour,Asia,Mild,Culture,Solo,Long,3800,4.9
+TOUR_MOROCCO,Morocco Heritage Journey,Africa,Warm,Mixed,Family,Medium,2200,4.5
+TOUR_CANADA,Canadian Rockies Nature Tour,North America,Cold,Nature,Family,Long,3100,4.7
+TOUR_PERU,Peru Adventure Explorer,South America,Mild,Adventure,Friends,Long,3300,4.6
+TOUR_DUBAI,Dubai Luxury Short Break,Middle East,Warm,Relaxation,Couple,Short,2900,4.4

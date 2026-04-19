@@ -1,0 +1,9 @@
+house_id,listing_name,city,property_type,bedrooms,bathrooms,area_size,price,parking,garden,view_quality
+HOUSE_MTL_CONDO,Downtown Montreal Condo,Montreal,Condo,2,2,1100,540000,Yes,No,Good
+HOUSE_QC_FAMILY,Quebec Family House,Quebec City,Detached house,4,3,2400,620000,Yes,Yes,Good
+HOUSE_TORONTO_INVEST,Toronto Urban Townhouse,Toronto,Townhouse,3,2,1500,880000,Yes,No,Basic
+HOUSE_VAN_LUX,Vancouver Scenic Villa,Vancouver,Detached house,5,4,3200,1450000,Yes,Yes,Excellent
+HOUSE_CALGARY_VALUE,Calgary Value Home,Calgary,Semi-detached,3,2,1800,460000,Yes,Yes,Basic
+HOUSE_MTL_FAMILY,Montreal Family Townhouse,Montreal,Townhouse,3,2,1700,590000,Yes,Yes,Good
+HOUSE_QC_CONDO,Quebec City River Condo,Quebec City,Condo,2,1,950,395000,No,No,Excellent
+HOUSE_TORONTO_COMPACT,Toronto Compact Condo,Toronto,Condo,1,1,700,510000,No,No,Good
