@@ -7,6 +7,9 @@ from app_core import (
     compute_shap_for_row,
     hide_sidebar_nav,
     init_result_state,
+    parse_cad_input,
+    render_cad_text_input,
+    render_choice_field,
     render_generic_result,
     render_mental_model_rating,
     timestamp_now,
@@ -37,50 +40,47 @@ st.caption(
     "get a recommendation, and continue to the survey."
 )
 
-max_price = st.selectbox(
+max_price_text, max_price = render_cad_text_input(
     "What is the maximum price you are willing to pay (CAD)? *",
-    options=list(range(15, 51)),
-    index=None,
-    placeholder="Choose a value",
+    key="pizza_max_price_text",
+    placeholder="e.g. 25 or CAD 25",
 )
 
-pizza_style = st.radio(
+pizza_style = render_choice_field(
     "Which pizza style do you prefer? *",
     ["Italian", "American"],
-    horizontal=True,
-    index=None,
+    key="pizza_style",
 )
 
-ingredient_preference = st.selectbox(
+ingredient_preference = render_choice_field(
     "Which ingredient do you prefer most? *",
     ["Cheese", "Pepperoni", "Chicken", "Vegetables", "Mushrooms"],
-    index=None,
-    placeholder="Choose an option",
+    key="ingredient_preference",
 )
 
-dietary_restriction = st.selectbox(
+dietary_restriction = render_choice_field(
     "Do you have any dietary restriction or allergy? *",
     DIETARY_OPTIONS,
-    index=None,
-    placeholder="Choose an option",
+    key="dietary_restriction",
+    horizontal=False,
 )
 
 dietary_restriction_other_text = ""
 if dietary_restriction == "Other (please specify)":
     dietary_restriction_other_text = st.text_input("Please specify your dietary restriction or allergy *")
 
-rating_importance = st.selectbox(
+rating_importance = render_choice_field(
     "How important are customer ratings when choosing a pizza? *",
     ["Not important", "Slightly important", "Moderately important", "Very important", "Extremely important"],
-    index=None,
-    placeholder="Choose an option",
+    key="rating_importance",
+    horizontal=False,
 )
 
-free_delivery_importance = st.selectbox(
+free_delivery_importance = render_choice_field(
     "How important is free delivery when choosing a pizza? *",
     ["Not important", "Slightly important", "Moderately important", "Very important", "Extremely important"],
-    index=None,
-    placeholder="Choose an option",
+    key="free_delivery_importance",
+    horizontal=False,
 )
 
 mental_model_ratings, all_answered = render_mental_model_rating(
@@ -94,7 +94,10 @@ if submit:
     input_errors = []
 
     if max_price is None:
-        input_errors.append("Maximum price is required.")
+        if str(max_price_text).strip() == "":
+            input_errors.append("Maximum price is required.")
+        else:
+            input_errors.append("Maximum price must be a valid amount in CAD.")
     if pizza_style is None:
         input_errors.append("Pizza style is required.")
     if ingredient_preference is None:

@@ -1,3 +1,4 @@
+import re
 import time
 from pathlib import Path
 from urllib.parse import urlencode
@@ -20,6 +21,61 @@ def hide_sidebar_nav():
         """
         <style>
             [data-testid="stSidebarNav"] {display: none;}
+
+            .mm-section-title {
+                font-size: 15px;
+                font-weight: 600;
+                margin-top: 24px;
+                margin-bottom: 8px;
+            }
+
+            .mm-section-subtitle {
+                color: #555;
+                font-size: 14px;
+                margin-bottom: 14px;
+            }
+
+            .mm-scale-header {
+                display: grid;
+                grid-template-columns: minmax(280px, 1.8fr) repeat(7, minmax(34px, 52px));
+                column-gap: 10px;
+                align-items: center;
+                padding: 0 0 8px 0;
+                border-bottom: 1px solid #d9d9d9;
+                margin-bottom: 6px;
+                color: #666;
+                font-size: 13px;
+            }
+
+            .mm-scale-header .mm-empty {
+                min-height: 1px;
+            }
+
+            .mm-scale-row {
+                display: grid;
+                grid-template-columns: minmax(280px, 1.8fr) repeat(7, minmax(34px, 52px));
+                column-gap: 10px;
+                align-items: center;
+                padding: 8px 0;
+            }
+
+            .mm-feature-label {
+                font-size: 14px;
+                line-height: 1.35;
+                color: #444;
+                padding-right: 10px;
+            }
+
+            div[data-testid="stRadio"] > label {
+                display: none !important;
+            }
+
+            .cad-help {
+                font-size: 12px;
+                color: #666;
+                margin-top: -8px;
+                margin-bottom: 8px;
+            }
         </style>
         """,
         unsafe_allow_html=True,
@@ -128,6 +184,7 @@ def aggregate_shap_to_study_features(shap_df: pd.DataFrame, feature_group_map: d
 def load_bundle(bundle_path: str):
     return joblib.load(bundle_path)
 
+
 def compute_shap_for_row(bundle: dict, x_row: pd.DataFrame):
     pipe = bundle["model"]
     explainer = bundle["explainer"]
@@ -137,7 +194,6 @@ def compute_shap_for_row(bundle: dict, x_row: pd.DataFrame):
     clf = pipe.named_steps["clf"]
     x_trans = pre.transform(x_row)
 
-    # همیشه به dense numeric تبدیل کن
     if hasattr(x_trans, "toarray"):
         x_dense = x_trans.toarray().astype(float)
     else:
@@ -184,7 +240,71 @@ def compute_shap_for_row(bundle: dict, x_row: pd.DataFrame):
     df["abs"] = df["shap_value"].abs()
     df = df.sort_values("abs", ascending=False).drop(columns=["abs"]).reset_index(drop=True)
     return pred_class, bv, df
-    
+
+
+def parse_cad_input(value: str):
+    """
+    Accepts inputs like:
+    1200
+    1,200
+    $1,200
+    CAD 1200
+    1200 CAD
+
+    Returns int or None if invalid/empty.
+    """
+    if value is None:
+        return None
+
+    raw = str(value).strip()
+    if raw == "":
+        return None
+
+    cleaned = raw.upper()
+    cleaned = cleaned.replace("CAD", "")
+    cleaned = cleaned.replace("$", "")
+    cleaned = cleaned.replace(",", "")
+    cleaned = cleaned.strip()
+
+    if not re.fullmatch(r"\d+(\.\d+)?", cleaned):
+        return None
+
+    amount = float(cleaned)
+    if amount < 0:
+        return None
+
+    return int(round(amount))
+
+
+def render_cad_text_input(label: str, key: str, placeholder: str = "Enter amount in CAD"):
+    value = st.text_input(label, key=key, placeholder=placeholder)
+    st.markdown("<div class='cad-help'>Only Canadian dollars (CAD).</div>", unsafe_allow_html=True)
+    parsed = parse_cad_input(value)
+    return value, parsed
+
+
+def render_choice_field(label: str, options: list, key: str, horizontal: bool = True):
+    """
+    If options are few (<=3), render as radio.
+    Otherwise, render as selectbox.
+    """
+    if len(options) <= 3:
+        return st.radio(
+            label,
+            options=options,
+            index=None,
+            horizontal=horizontal,
+            key=key,
+        )
+    return st.selectbox(
+        label,
+        options=options,
+        index=None,
+        placeholder="Choose an option",
+        key=key,
+    )
+
+
 def _build_agg_plot_df(payload: dict, max_display: int, min_display: int = 4):
     agg = payload["xai_agg"].copy()
     if agg.empty:
@@ -248,16 +368,21 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
     if state_key not in st.session_state:
         st.session_state[state_key] = {}
 
-    rating_options = {
-        "Not important at all": 1,
-        "Slightly important": 2,
-        "Moderately important": 3,
-        "Important": 4,
-        "Very important": 5,
-    }
+    st.markdown("<div class='mm-section-title'>Before seeing the AI explanation</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='mm-section-subtitle'>Please rate the importance of each feature in the AI’s decision on a scale from 1 (not important at all) to 7 (significantly important).</div>",
+        unsafe_allow_html=True,
+    )
 
-    st.subheader("Before seeing the AI explanation")
-    st.caption("Please rate how important each factor is, in your opinion, in influencing the AI’s recommendation.")
+    header_cols = st.columns([4.8, 1, 1, 1, 1, 1, 1, 1])
+    with header_cols[0]:
+        st.markdown("&nbsp;", unsafe_allow_html=True)
+    for i in range(1, 8):
+        with header_cols[i]:
+            st.markdown(
+                f"<div style='text-align:center; color:#666; font-size:13px; margin-bottom:2px;'>{i}</div>",
+                unsafe_allow_html=True,
+            )
 
     ratings = {}
     all_answered = True
@@ -265,34 +390,47 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
     for feature in feature_labels:
         key = f"{state_key}_{feature}"
 
-        col1, col2 = st.columns([1.2, 3.2])
-
-        with col1:
+        cols = st.columns([4.8, 1, 1, 1, 1, 1, 1, 1])
+        with cols[0]:
             st.markdown(
-                f"""
-                <div style="font-weight:600; font-size:15px; padding-top:8px;">
-                    {feature} <span style="color:red">*</span>
-                </div>
-                """,
+                f"<div class='mm-feature-label'>{feature} was important in the AI’s decision.</div>",
                 unsafe_allow_html=True,
             )
 
-        with col2:
-            selected = st.radio(
-                label=f"Rate {feature}",
-                options=list(rating_options.keys()),
-                index=None,
-                horizontal=True,
-                label_visibility="collapsed",
-                key=key,
-            )
+        selected = None
+        for i in range(1, 8):
+            with cols[i]:
+                chosen = st.radio(
+                    label=f"{feature} - scale",
+                    options=[i],
+                    index=None if st.session_state.get(key) != i else 0,
+                    key=f"{key}_{i}",
+                    label_visibility="collapsed",
+                )
+                if chosen is not None:
+                    selected = i
+
+        # rebuild selected value from per-column radios
+        selected_values = []
+        for i in range(1, 8):
+            if st.session_state.get(f"{key}_{i}") == i:
+                selected_values.append(i)
+
+        if len(selected_values) > 1:
+            # keep only the last selected one
+            keep = selected_values[-1]
+            for i in range(1, 8):
+                st.session_state[f"{key}_{i}"] = i if i == keep else None
+            selected = keep
+        elif len(selected_values) == 1:
+            selected = selected_values[0]
+        else:
+            selected = None
 
         if selected is None:
             all_answered = False
         else:
-            ratings[feature] = rating_options[selected]
-
-        st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
+            ratings[feature] = selected
 
     st.session_state[state_key] = ratings
     return ratings, all_answered

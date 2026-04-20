@@ -1,4 +1,3 @@
-#test hello
 import pandas as pd
 import streamlit as st
 
@@ -8,6 +7,8 @@ from app_core import (
     compute_shap_for_row,
     hide_sidebar_nav,
     init_result_state,
+    render_cad_text_input,
+    render_choice_field,
     render_generic_result,
     render_mental_model_rating,
     timestamp_now,
@@ -34,130 +35,119 @@ st.caption(
     "get a recommendation, and continue to the survey."
 )
 
-budget = st.selectbox(
+budget_text, budget = render_cad_text_input(
     "Budget (CAD) *",
-    list(range(150000, 1500001, 10000)),
-    index=None,
-    placeholder="Choose a value",
+    key="house_budget_text",
+    placeholder="e.g. 650000 or CAD 650000",
 )
 
-city = st.selectbox(
+city = render_choice_field(
     "Preferred city *",
     ["Montreal", "Quebec City", "Toronto", "Vancouver", "Calgary"],
-    index=None,
-    placeholder="Choose an option",
+    key="city",
+    horizontal=False,
 )
 
-property_type = st.selectbox(
+property_type = render_choice_field(
     "Property type *",
     ["Condo", "Townhouse", "Detached house", "Semi-detached"],
-    index=None,
-    placeholder="Choose an option",
+    key="property_type",
+    horizontal=False,
 )
 
-bedrooms = st.selectbox(
+bedrooms = render_choice_field(
     "Bedrooms *",
     [1, 2, 3, 4, 5],
-    index=None,
-    placeholder="Choose an option",
+    key="bedrooms",
+    horizontal=False,
 )
 
-bathrooms = st.selectbox(
+bathrooms = render_choice_field(
     "Bathrooms *",
     [1, 2, 3, 4],
-    index=None,
-    placeholder="Choose an option",
+    key="bathrooms",
+    horizontal=False,
 )
 
-area_size = st.selectbox(
+area_size = render_choice_field(
     "Minimum preferred area size (sq ft) *",
     list(range(500, 4001, 50)),
-    index=None,
-    placeholder="Choose a value",
+    key="area_size",
+    horizontal=False,
 )
 
-distance_to_downtown = st.selectbox(
+distance_to_downtown = render_choice_field(
     "Preferred distance to downtown *",
     ["Very close", "Close", "Moderate", "Far"],
-    index=None,
-    placeholder="Choose an option",
+    key="distance_to_downtown",
+    horizontal=False,
 )
 
-public_transport_access = st.selectbox(
+public_transport_access = render_choice_field(
     "Public transport access *",
     ["Low", "Medium", "High"],
-    index=None,
-    placeholder="Choose an option",
+    key="public_transport_access",
 )
 
-school_quality = st.selectbox(
+school_quality = render_choice_field(
     "School quality importance *",
     ["Low", "Medium", "High"],
-    index=None,
-    placeholder="Choose an option",
+    key="school_quality",
 )
 
-safety = st.selectbox(
+safety = render_choice_field(
     "Safety importance *",
     ["Low", "Medium", "High", "Very high"],
-    index=None,
-    placeholder="Choose an option",
+    key="safety",
+    horizontal=False,
 )
 
-noise_level = st.selectbox(
+noise_level = render_choice_field(
     "Noise tolerance *",
     ["Low", "Medium", "High"],
-    index=None,
-    placeholder="Choose an option",
+    key="noise_level",
 )
 
-parking = st.selectbox(
+parking = render_choice_field(
     "Need parking? *",
     ["Yes", "No"],
-    index=None,
-    placeholder="Choose an option",
+    key="parking",
 )
 
-garden = st.selectbox(
+garden = render_choice_field(
     "Need garden or yard? *",
     ["Yes", "No"],
-    index=None,
-    placeholder="Choose an option",
+    key="garden",
 )
 
-view_quality = st.selectbox(
+view_quality = render_choice_field(
     "Preferred view quality *",
     ["Basic", "Good", "Excellent"],
-    index=None,
-    placeholder="Choose an option",
+    key="view_quality",
 )
 
-building_age = st.selectbox(
+building_age = render_choice_field(
     "Preferred building age *",
     ["New", "Moderate", "Older"],
-    index=None,
-    placeholder="Choose an option",
+    key="building_age",
 )
 
-investment_potential = st.selectbox(
+investment_potential = render_choice_field(
     "Investment potential importance *",
     ["Low", "Medium", "High"],
-    index=None,
-    placeholder="Choose an option",
+    key="investment_potential",
 )
 
-property_tax_sensitivity = st.selectbox(
+property_tax_sensitivity = render_choice_field(
     "Sensitivity to property tax *",
     ["Low", "Medium", "High"],
-    index=None,
-    placeholder="Choose an option",
+    key="property_tax_sensitivity",
 )
 
-family_suitability = st.selectbox(
+family_suitability = render_choice_field(
     "Family suitability importance *",
     ["Low", "Medium", "High"],
-    index=None,
-    placeholder="Choose an option",
+    key="family_suitability",
 )
 
 mental_model_ratings, all_answered = render_mental_model_rating(
@@ -171,7 +161,10 @@ if submit:
     input_errors = []
 
     if budget is None:
-        input_errors.append("Budget is required.")
+        if str(budget_text).strip() == "":
+            input_errors.append("Budget is required.")
+        else:
+            input_errors.append("Budget must be a valid amount in CAD.")
     if city is None:
         input_errors.append("Preferred city is required.")
     if property_type is None:

@@ -7,6 +7,8 @@ from app_core import (
     compute_shap_for_row,
     hide_sidebar_nav,
     init_result_state,
+    render_cad_text_input,
+    render_choice_field,
     render_generic_result,
     render_mental_model_rating,
     timestamp_now,
@@ -33,88 +35,83 @@ st.caption(
     "then get a tour recommendation."
 )
 
-budget = st.selectbox(
+budget_text, budget = render_cad_text_input(
     "What is your budget (CAD) *",
-    options=list(range(800, 6001, 100)),
-    index=None,
-    placeholder="Choose a value",
+    key="tour_budget_text",
+    placeholder="e.g. 2500 or CAD 2500",
 )
 
-trip_duration = st.selectbox(
+trip_duration = render_choice_field(
     "Preferred trip duration *",
     ["Short", "Medium", "Long"],
-    index=None,
-    placeholder="Choose an option",
+    key="trip_duration",
 )
 
-preferred_region = st.selectbox(
+preferred_region = render_choice_field(
     "Preferred region *",
     ["Europe", "Asia", "North America", "South America", "Middle East", "Africa"],
-    index=None,
-    placeholder="Choose an option",
+    key="preferred_region",
+    horizontal=False,
 )
 
-preferred_climate = st.selectbox(
+preferred_climate = render_choice_field(
     "Preferred climate *",
     ["Cold", "Mild", "Warm"],
-    index=None,
-    placeholder="Choose an option",
+    key="preferred_climate",
 )
 
-travel_style = st.selectbox(
+travel_style = render_choice_field(
     "Preferred travel style *",
     ["Adventure", "Relaxation", "Culture", "Nature", "Mixed"],
-    index=None,
-    placeholder="Choose an option",
+    key="travel_style",
+    horizontal=False,
 )
 
-group_type = st.selectbox(
+group_type = render_choice_field(
     "Who are you travelling with? *",
     ["Solo", "Couple", "Family", "Friends"],
-    index=None,
-    placeholder="Choose an option",
+    key="group_type",
+    horizontal=False,
 )
 
-accommodation_level = st.selectbox(
+accommodation_level = render_choice_field(
     "Preferred accommodation level *",
     ["Budget", "Standard", "Premium", "Luxury"],
-    index=None,
-    placeholder="Choose an option",
+    key="accommodation_level",
+    horizontal=False,
 )
 
-food_interest = st.selectbox(
+food_interest = render_choice_field(
     "How important is local food experience? *",
     ["Low", "Medium", "High"],
-    index=None,
-    placeholder="Choose an option",
+    key="food_interest",
 )
 
-transportation_comfort = st.selectbox(
+transportation_comfort = render_choice_field(
     "Transportation comfort preference *",
     ["Basic", "Moderate", "High"],
-    index=None,
-    placeholder="Choose an option",
+    key="transportation_comfort",
 )
 
-season = st.selectbox(
+season = render_choice_field(
     "Preferred season *",
     ["Spring", "Summer", "Autumn", "Winter"],
-    index=None,
-    placeholder="Choose an option",
+    key="season",
+    horizontal=False,
 )
 
-safety_importance = st.selectbox(
+safety_importance = render_choice_field(
     "How important is safety? *",
     ["Low", "Medium", "High", "Very high"],
-    index=None,
-    placeholder="Choose an option",
+    key="safety_importance",
+    horizontal=False,
 )
 
-rating_importance = st.selectbox(
+rating_importance = render_choice_field(
     "How important are tour ratings? *",
     ["Low", "Medium", "High", "Very high"],
-    index=None,
-    placeholder="Choose an option",
+    key="tour_rating_importance",
+    horizontal=False,
 )
 
 mental_model_ratings, all_answered = render_mental_model_rating(
@@ -128,7 +125,10 @@ if submit:
     input_errors = []
 
     if budget is None:
-        input_errors.append("Budget is required.")
+        if str(budget_text).strip() == "":
+            input_errors.append("Budget is required.")
+        else:
+            input_errors.append("Budget must be a valid amount in CAD.")
     if trip_duration is None:
         input_errors.append("Trip duration is required.")
     if preferred_region is None:
