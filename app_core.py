@@ -35,39 +35,11 @@ def hide_sidebar_nav():
                 margin-bottom: 14px;
             }
 
-            .mm-scale-header {
-                display: grid;
-                grid-template-columns: minmax(280px, 1.8fr) repeat(7, minmax(34px, 52px));
-                column-gap: 10px;
-                align-items: center;
-                padding: 0 0 8px 0;
-                border-bottom: 1px solid #d9d9d9;
-                margin-bottom: 6px;
-                color: #666;
-                font-size: 13px;
-            }
-
-            .mm-scale-header .mm-empty {
-                min-height: 1px;
-            }
-
-            .mm-scale-row {
-                display: grid;
-                grid-template-columns: minmax(280px, 1.8fr) repeat(7, minmax(34px, 52px));
-                column-gap: 10px;
-                align-items: center;
-                padding: 8px 0;
-            }
-
             .mm-feature-label {
                 font-size: 14px;
                 line-height: 1.35;
                 color: #444;
                 padding-right: 10px;
-            }
-
-            div[data-testid="stRadio"] > label {
-                display: none !important;
             }
 
             .cad-help {
@@ -363,6 +335,7 @@ def init_result_state(task_key: str):
 
     return result_ready_key, result_payload_key, mm_rating_key
 
+
 def render_mental_model_rating(feature_labels: list, state_key: str):
     if state_key not in st.session_state:
         st.session_state[state_key] = {}
@@ -390,7 +363,13 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
     all_answered = True
 
     for feature in feature_labels:
-        key = f"{state_key}_{feature}"
+        safe_feature = (
+            feature.lower()
+            .replace(" ", "_")
+            .replace("/", "_")
+            .replace("-", "_")
+        )
+        key = f"{state_key}_{safe_feature}"
 
         cols = st.columns([4.8, 7.2])
 
@@ -417,6 +396,7 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
 
     st.session_state[state_key] = ratings
     return ratings, all_answered
+
 
 def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
     step = route["step"]
