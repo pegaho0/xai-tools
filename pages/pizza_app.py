@@ -23,7 +23,9 @@ st.set_page_config(page_title="Pizza Recommendation Study", layout="centered")
 hide_sidebar_nav()
 route = validate_and_store_route()
 
-bundle = load_bundle(PIZZA_CONFIG["bundle_path"])
+from model_loader import load_model_bundle
+bundle = load_model_bundle("pizza")
+
 catalog = pd.read_csv("data/pizza_catalog.csv")
 pizza_id_to_meta = {row["pizza_id"]: row.to_dict() for _, row in catalog.iterrows()}
 

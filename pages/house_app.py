@@ -20,7 +20,9 @@ st.set_page_config(page_title="House Recommendation Study", layout="centered")
 hide_sidebar_nav()
 route = validate_and_store_route()
 
-bundle = load_bundle(HOUSE_CONFIG["bundle_path"])
+from model_loader import load_model_bundle
+bundle = load_model_bundle("house")
+
 catalog = pd.read_csv("data/house_catalog.csv")
 house_id_to_meta = {row["house_id"]: row.to_dict() for _, row in catalog.iterrows()}
 

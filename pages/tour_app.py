@@ -19,7 +19,9 @@ st.set_page_config(page_title="Tour Recommendation Study", layout="centered")
 hide_sidebar_nav()
 route = validate_and_store_route()
 
-bundle = load_bundle(TOUR_CONFIG["bundle_path"])
+from model_loader import load_model_bundle
+bundle = load_model_bundle("tour")
+
 catalog = pd.read_csv("data/tour_catalog.csv")
 tour_id_to_meta = {row["tour_id"]: row.to_dict() for _, row in catalog.iterrows()}
 
