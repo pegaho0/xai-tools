@@ -1,3 +1,10 @@
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
 import pandas as pd
 import streamlit as st
 
@@ -7,8 +14,6 @@ from app_core import (
     compute_shap_for_row,
     hide_sidebar_nav,
     init_result_state,
-    render_cad_text_input,
-    render_choice_field,
     render_generic_result,
     render_mental_model_rating,
     timestamp_now,
