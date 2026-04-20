@@ -14,6 +14,8 @@ from app_core import (
     compute_shap_for_row,
     hide_sidebar_nav,
     init_result_state,
+    render_cad_text_input,
+    render_choice_field,
     render_generic_result,
     render_mental_model_rating,
     timestamp_now,
@@ -34,7 +36,10 @@ tour_id_to_meta = {row["tour_id"]: row.to_dict() for _, row in catalog.iterrows(
 result_ready_key, result_payload_key, mm_rating_key = init_result_state("tour")
 
 st.title("🌍 Tour Recommendation")
-st.caption(f"{'Visual Explanation' if route['group'] == 'visual' else 'Text Explanation'} • Step {route['step']} of 3")
+st.caption(
+    f"{'Visual Explanation' if route['group'] == 'visual' else 'Text Explanation'} • "
+    f"Step {route['step']} of 3"
+)
 st.caption(
     "Provide your travel preferences, rate how important you think each factor is to the AI, "
     "then get a tour recommendation."
@@ -134,6 +139,7 @@ if submit:
             input_errors.append("Budget is required.")
         else:
             input_errors.append("Budget must be a valid amount in CAD.")
+
     if trip_duration is None:
         input_errors.append("Trip duration is required.")
     if preferred_region is None:
@@ -182,7 +188,10 @@ if submit:
         meta = tour_id_to_meta[pred_id]
 
         _, base_value, shap_df = compute_shap_for_row(bundle, x)
-        xai_agg = aggregate_shap_to_study_features(shap_df, TOUR_CONFIG["feature_group_map"])
+        xai_agg = aggregate_shap_to_study_features(
+            shap_df,
+            TOUR_CONFIG["feature_group_map"],
+        )
         xai_rank_list = xai_agg["study_feature"].tolist()
 
         st.session_state[result_ready_key] = True
@@ -190,6 +199,7 @@ if submit:
             "timestamp": timestamp_now(),
             "inputs": {
                 "budget": budget,
+                "budget_text": budget_text,
                 "trip_duration": trip_duration,
                 "preferred_region": preferred_region,
                 "preferred_climate": preferred_climate,
@@ -216,7 +226,12 @@ if submit:
 if st.session_state[result_ready_key] and st.session_state[result_payload_key] is not None:
     payload = st.session_state[result_payload_key]
     render_generic_result(route, TOUR_CONFIG, payload)
-    return_url = build_return_url(route, TOUR_CONFIG["survey_map"], payload, TOUR_CONFIG["task_name"])
+    return_url = build_return_url(
+        route,
+        TOUR_CONFIG["survey_map"],
+        payload,
+        TOUR_CONFIG["task_name"],
+    )
     st.link_button("Continue to Survey", return_url, use_container_width=True)
 else:
     st.caption("Complete all sections and click Get recommendation to continue.")
