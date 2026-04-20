@@ -1,1 +1,1 @@
-# make configs a package
+# configs/__init__.py

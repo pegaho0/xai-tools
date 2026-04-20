@@ -1,9 +1,8 @@
-# streamlit
-# numpy
-# pandas
-# matplotlib
-# scikit-learn
-# shap
-# joblib
-# streamlit-sortables
+streamlit
+pandas
+numpy
+matplotlib
+shap
+scikit-learn
+joblib
 gdown
