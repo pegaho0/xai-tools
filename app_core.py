@@ -257,17 +257,20 @@ def render_cad_text_input(label: str, key: str, placeholder: str = "Enter amount
 
 def render_choice_field(label: str, options: list, key: str, horizontal: bool = True):
     """
-    If options are few (<=3), render as radio.
+    If options are few (<=3), render as radio with a separate visible label.
     Otherwise, render as selectbox.
     """
     if len(options) <= 3:
+        st.markdown(label)
         return st.radio(
-            label,
+            label="",
             options=options,
             index=None,
             horizontal=horizontal,
             key=key,
+            label_visibility="collapsed",
         )
+
     return st.selectbox(
         label,
         options=options,
@@ -275,7 +278,6 @@ def render_choice_field(label: str, options: list, key: str, horizontal: bool = 
         placeholder="Choose an option",
         key=key,
     )
-
 
 def _build_agg_plot_df(payload: dict, max_display: int, min_display: int = 4):
     agg = payload["xai_agg"].copy()
