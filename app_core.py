@@ -363,12 +363,14 @@ def init_result_state(task_key: str):
 
     return result_ready_key, result_payload_key, mm_rating_key
 
-
 def render_mental_model_rating(feature_labels: list, state_key: str):
     if state_key not in st.session_state:
         st.session_state[state_key] = {}
 
-    st.markdown("<div class='mm-section-title'>Before seeing the AI explanation</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='mm-section-title'>Before seeing the AI explanation</div>",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         "<div class='mm-section-subtitle'>Please rate the importance of each feature in the AI’s decision on a scale from 1 (not important at all) to 7 (significantly important).</div>",
         unsafe_allow_html=True,
@@ -390,42 +392,23 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
     for feature in feature_labels:
         key = f"{state_key}_{feature}"
 
-        cols = st.columns([4.8, 1, 1, 1, 1, 1, 1, 1])
+        cols = st.columns([4.8, 7.2])
+
         with cols[0]:
             st.markdown(
                 f"<div class='mm-feature-label'>{feature} was important in the AI’s decision.</div>",
                 unsafe_allow_html=True,
             )
 
-        selected = None
-        for i in range(1, 8):
-            with cols[i]:
-                chosen = st.radio(
-                    label=f"{feature} - scale",
-                    options=[i],
-                    index=None if st.session_state.get(key) != i else 0,
-                    key=f"{key}_{i}",
-                    label_visibility="collapsed",
-                )
-                if chosen is not None:
-                    selected = i
-
-        # rebuild selected value from per-column radios
-        selected_values = []
-        for i in range(1, 8):
-            if st.session_state.get(f"{key}_{i}") == i:
-                selected_values.append(i)
-
-        if len(selected_values) > 1:
-            # keep only the last selected one
-            keep = selected_values[-1]
-            for i in range(1, 8):
-                st.session_state[f"{key}_{i}"] = i if i == keep else None
-            selected = keep
-        elif len(selected_values) == 1:
-            selected = selected_values[0]
-        else:
-            selected = None
+        with cols[1]:
+            selected = st.radio(
+                label=f"{feature} - scale",
+                options=[1, 2, 3, 4, 5, 6, 7],
+                index=None,
+                horizontal=True,
+                key=key,
+                label_visibility="collapsed",
+            )
 
         if selected is None:
             all_answered = False
@@ -434,7 +417,6 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
 
     st.session_state[state_key] = ratings
     return ratings, all_answered
-
 
 def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
     step = route["step"]
