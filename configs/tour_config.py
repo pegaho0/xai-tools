@@ -1,7 +1,7 @@
 TOUR_SURVEY_MAP = {
     "1": "https://concordia.yul1.qualtrics.com/jfe/form/SV_2cps8pBYmqBoJxk",
-    "2": "https://concordia.yul1.qualtrics.com/jfe/form/SV_cCRzNs9C9udnXBs",
-    "3": "https://concordia.yul1.qualtrics.com/jfe/form/SV_di1XtEdutYn62Ds",
+    "2": "https://concordia.yul1.qualtrics.com/jfe/form/SV_0BLYh0VPj7VxGt0",
+    "3": "https://concordia.yul1.qualtrics.com/jfe/form/SV_4TJpNpKcMW1PpB4",
 }
 
 TOUR_MENTAL_MODEL_FEATURES = [
