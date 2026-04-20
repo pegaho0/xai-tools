@@ -1,65 +1,51 @@
-HOUSE_SURVEY_MAP = {
+TOUR_SURVEY_MAP = {
     "1": "https://concordia.yul1.qualtrics.com/jfe/form/SV_2cps8pBYmqBoJxk",
     "2": "https://concordia.yul1.qualtrics.com/jfe/form/SV_cCRzNs9C9udnXBs",
     "3": "https://concordia.yul1.qualtrics.com/jfe/form/SV_di1XtEdutYn62Ds",
 }
 
-HOUSE_MENTAL_MODEL_FEATURES = [
+TOUR_MENTAL_MODEL_FEATURES = [
     "Budget",
-    "City",
-    "Property type",
-    "Bedrooms",
-    "Bathrooms",
-    "Area size",
-    "Distance to downtown",
-    "Public transport access",
-    "School quality",
-    "Safety",
-    "Noise level",
-    "Parking",
-    "Garden",
-    "View quality",
-    "Building age",
-    "Investment potential",
-    "Property tax sensitivity",
-    "Family suitability",
+    "Trip duration",
+    "Preferred region",
+    "Preferred climate",
+    "Travel style",
+    "Group type",
+    "Accommodation level",
+    "Food interest",
+    "Transportation comfort",
+    "Season",
+    "Safety importance",
+    "Rating importance",
 ]
 
-HOUSE_FEATURE_GROUP_MAP = {
+TOUR_FEATURE_GROUP_MAP = {
     "budget": "Budget",
-    "city": "City",
-    "property_type": "Property type",
-    "bedrooms": "Bedrooms",
-    "bathrooms": "Bathrooms",
-    "area_size": "Area size",
-    "distance_to_downtown": "Distance to downtown",
-    "public_transport_access": "Public transport access",
-    "school_quality": "School quality",
-    "safety": "Safety",
-    "noise_level": "Noise level",
-    "parking": "Parking",
-    "garden": "Garden",
-    "view_quality": "View quality",
-    "building_age": "Building age",
-    "investment_potential": "Investment potential",
-    "property_tax_sensitivity": "Property tax sensitivity",
-    "family_suitability": "Family suitability",
+    "trip_duration": "Trip duration",
+    "preferred_region": "Preferred region",
+    "preferred_climate": "Preferred climate",
+    "travel_style": "Travel style",
+    "group_type": "Group type",
+    "accommodation_level": "Accommodation level",
+    "food_interest": "Food interest",
+    "transportation_comfort": "Transportation comfort",
+    "season": "Season",
+    "safety_importance": "Safety importance",
+    "rating_importance": "Rating importance",
 }
 
 
 def result_formatter(payload: dict) -> str:
     meta = payload["meta"]
     return (
-        f"**{meta['listing_name']}**\n\n"
-        f"- City: {meta['city']}\n"
-        f"- Type: {meta['property_type']}\n"
-        f"- Bedrooms: {meta['bedrooms']}\n"
-        f"- Bathrooms: {meta['bathrooms']}\n"
-        f"- Area: {meta['area_size']} sq ft\n"
+        f"**{meta['tour_name']}**\n\n"
+        f"- Region: {meta['region']}\n"
+        f"- Climate: {meta['climate']}\n"
+        f"- Travel style: {meta['travel_style']}\n"
+        f"- Group fit: {meta['group_type']}\n"
+        f"- Duration: {meta['trip_duration']}\n"
         f"- Price: ${meta['price']} CAD\n"
-        f"- Parking: {meta['parking']}\n"
-        f"- Garden: {meta['garden']}\n"
-        f"- View: {meta['view_quality']}"
+        f"- Rating: {meta['rating']}"
     )
 
 
@@ -68,46 +54,40 @@ def text_reason_builder(payload: dict) -> list[str]:
     top = payload["xai_agg"].head(6)["study_feature"].tolist()
 
     templates = {
-        "Budget": f"Your budget (**${inputs['budget']} CAD**) was a key factor in narrowing the property options.",
-        "City": f"Your preferred city (**{inputs['city']}**) strongly influenced the recommendation.",
-        "Property type": f"Your preferred property type (**{inputs['property_type']}**) influenced the selected listing.",
-        "Bedrooms": f"Your bedroom preference (**{inputs['bedrooms']}**) contributed to the recommendation.",
-        "Bathrooms": f"Your bathroom preference (**{inputs['bathrooms']}**) contributed to the recommendation.",
-        "Area size": f"Your minimum preferred area size (**{inputs['area_size']} sq ft**) influenced the final match.",
-        "Distance to downtown": f"Your preferred distance to downtown (**{inputs['distance_to_downtown']}**) was taken into account.",
-        "Public transport access": f"Your preference for public transport access (**{inputs['public_transport_access']}**) influenced the recommendation.",
-        "School quality": f"Your school-quality preference (**{inputs['school_quality']}**) contributed to the final choice.",
-        "Safety": f"Your stated importance of safety (**{inputs['safety']}**) affected the recommendation.",
-        "Noise level": f"Your noise tolerance (**{inputs['noise_level']}**) influenced the decision.",
-        "Parking": f"Your parking preference (**{inputs['parking']}**) was considered by the model.",
-        "Garden": f"Your garden or yard preference (**{inputs['garden']}**) influenced the selected property.",
-        "View quality": f"Your preferred view quality (**{inputs['view_quality']}**) contributed to the final recommendation.",
-        "Building age": f"Your building age preference (**{inputs['building_age']}**) was taken into account.",
-        "Investment potential": f"Your interest in investment potential (**{inputs['investment_potential']}**) influenced the result.",
-        "Property tax sensitivity": f"Your property tax sensitivity (**{inputs['property_tax_sensitivity']}**) was considered in the decision.",
-        "Family suitability": f"Your family suitability preference (**{inputs['family_suitability']}**) contributed to the recommendation.",
+        "Budget": f"Your budget (**${inputs['budget']} CAD**) shaped which tours were realistic matches.",
+        "Trip duration": f"Your preferred trip duration (**{inputs['trip_duration']}**) influenced the recommendation.",
+        "Preferred region": f"Your preferred region (**{inputs['preferred_region']}**) was an important factor in the selection.",
+        "Preferred climate": f"Your preferred climate (**{inputs['preferred_climate']}**) influenced the final recommendation.",
+        "Travel style": f"Your travel style (**{inputs['travel_style']}**) strongly affected the selected tour.",
+        "Group type": f"Who you are travelling with (**{inputs['group_type']}**) contributed to the model’s decision.",
+        "Accommodation level": f"Your accommodation preference (**{inputs['accommodation_level']}**) was taken into account.",
+        "Food interest": f"Your interest in local food experiences (**{inputs['food_interest']}**) influenced the recommendation.",
+        "Transportation comfort": f"Your transportation comfort preference (**{inputs['transportation_comfort']}**) contributed to the decision.",
+        "Season": f"Your preferred season (**{inputs['season']}**) influenced the model’s choice.",
+        "Safety importance": f"Your stated importance of safety (**{inputs['safety_importance']}**) affected the recommendation.",
+        "Rating importance": f"Your stated importance of ratings (**{inputs['rating_importance']}**) influenced how the model weighed tour quality.",
     }
 
     reasons = [templates[f] for f in top if f in templates]
 
     if not reasons:
-        reasons.append("This property was the strongest overall match for your stated housing preferences.")
+        reasons.append("This tour was the strongest overall match for your stated travel preferences.")
 
     return reasons[:6]
 
 
-HOUSE_CONFIG = {
-    "task_name": "house",
-    "bundle_path": "models/house_bundle.joblib",
-    "survey_map": HOUSE_SURVEY_MAP,
-    "mental_model_features": HOUSE_MENTAL_MODEL_FEATURES,
-    "feature_group_map": HOUSE_FEATURE_GROUP_MAP,
-    "result_title": "Recommended house",
+TOUR_CONFIG = {
+    "task_name": "tour",
+    "bundle_path": "models/tour_bundle.joblib",
+    "survey_map": TOUR_SURVEY_MAP,
+    "mental_model_features": TOUR_MENTAL_MODEL_FEATURES,
+    "feature_group_map": TOUR_FEATURE_GROUP_MAP,
+    "result_title": "Recommended tour",
     "min_shap_display": 4,
     "max_shap_display": 6,
     "max_text_reasons": 6,
-    "visual_caption": "This explanation summarizes the main preference factors the model used when selecting the recommended property.",
-    "text_caption": "This explanation summarizes the main preference factors that influenced the property recommendation.",
+    "visual_caption": "This explanation summarizes the main preference factors the model used when selecting the recommended tour.",
+    "text_caption": "This explanation summarizes the main preference factors that influenced the tour recommendation.",
     "result_formatter": result_formatter,
     "text_reason_builder": text_reason_builder,
 }
