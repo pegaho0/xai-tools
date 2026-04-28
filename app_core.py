@@ -1183,7 +1183,7 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
     st.session_state[state_key] = ratings
     return ratings, all_answered
 
-    def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
+def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
     """
     Build the Qualtrics return URL.
 
@@ -1259,11 +1259,6 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
         params[f"{task_name}_xai_rank_{i}"] = feature_label
 
     return f"{base_url}?{urlencode(params)}"
-
-
-
-
-
 
 def _top_features(payload: dict, n: int = None, min_n: int = 0):
     return payload["xai_agg"]["study_feature"].tolist()
