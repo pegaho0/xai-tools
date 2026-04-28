@@ -1183,14 +1183,49 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
     st.session_state[state_key] = ratings
     return ratings, all_answered
 
-def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
-    step = route["step"]
+    def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
+    """
+    Build the Qualtrics return URL.
+
+    Sends:
+    - common routing variables: pid, group, app1, app2, app3, step, current_app
+    - recommendation result: task, rec_id, rec_name, ts
+    - original app inputs
+    - mental model ratings using Qualtrics names:
+        pizza_mm_...
+        tour_mm_...
+        house_mm_...
+    - SHAP/XAI ranking using Qualtrics names:
+        pizza_xai_rank_1, ...
+        tour_xai_rank_1, ...
+        house_xai_rank_1, ...
+    """
+
+    step = str(route["step"]).strip()
+
     if step not in survey_map:
         st.error("Invalid survey routing step.")
         st.stop()
 
     base_url = survey_map[step]
+
+    def safe_name(value):
+        """
+        Convert labels such as:
+        'Maximum price' -> 'maximum_price'
+        'Dietary restriction / allergy' -> 'dietary_restriction_allergy'
+        'Distance to downtown' -> 'distance_to_downtown'
+        """
+        value = str(value).strip().lower()
+        value = value.replace("&", "and")
+        value = value.replace("/", " ")
+        value = value.replace("-", " ")
+        value = re.sub(r"[^a-z0-9]+", "_", value)
+        value = re.sub(r"_+", "_", value)
+        return value.strip("_")
+
     params = {
+        # routing / participant info
         "pid": route["pid"],
         "group": route["group"],
         "app1": route["app1"],
@@ -1198,23 +1233,36 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
         "app3": route["app3"],
         "step": route["step"],
         "current_app": route["app"],
+
+        # recommendation info
         "task": task_name,
-        "rec_id": payload["recommended_id"],
-        "rec_name": payload["recommended_name"],
-        "ts": payload["timestamp"],
+        "rec_id": payload.get("recommended_id", ""),
+        "rec_name": payload.get("recommended_name", ""),
+        "ts": payload.get("timestamp", ""),
     }
 
-    for k, v in payload["inputs"].items():
-        params[k] = v
+    # Send original app inputs too, but prefix them to avoid collisions.
+    # Example: house_budget, pizza_pizza_style, tour_budget
+    for k, v in payload.get("inputs", {}).items():
+        if v is not None:
+            params[f"{task_name}_{safe_name(k)}"] = v
 
-    for k, v in payload["mental_model_ratings"].items():
-        safe_key = k.lower().replace(" ", "_").replace("/", "_").replace("-", "_")
-        params[f"mm_rating_{safe_key}"] = v
+    # Send mental-model ratings with EXACT Qualtrics naming pattern.
+    # Example: house_mm_budget=1
+    for feature_label, rating in payload.get("mental_model_ratings", {}).items():
+        if rating is not None:
+            params[f"{task_name}_mm_{safe_name(feature_label)}"] = rating
 
-    for i, item in enumerate(payload["xai_rank_list"], start=1):
-        params[f"xai_rank_{i}"] = item
+    # Send XAI ranking with EXACT Qualtrics naming pattern.
+    # Example: house_xai_rank_1=City
+    for i, feature_label in enumerate(payload.get("xai_rank_list", []), start=1):
+        params[f"{task_name}_xai_rank_{i}"] = feature_label
 
     return f"{base_url}?{urlencode(params)}"
+
+
+
+
 
 
 def _top_features(payload: dict, n: int = None, min_n: int = 0):
