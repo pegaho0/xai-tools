@@ -458,7 +458,7 @@ def maybe_show_step1_welcome_modal(route: dict):
     if st.session_state.get(seen_key, False):
         return
 
-    @st.dialog("")
+    @st.dialog("Welcome")
     def _welcome_dialog():
         st.markdown("<div class='welcome-modal-title'>Welcome to our experiment!</div>", unsafe_allow_html=True)
         st.markdown(
