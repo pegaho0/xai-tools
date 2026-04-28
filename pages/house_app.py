@@ -14,6 +14,7 @@ from app_core import (
     compute_shap_for_row,
     hide_sidebar_nav,
     init_result_state,
+    maybe_show_step1_welcome_modal,
     render_cad_text_input,
     render_choice_field,
     render_generic_result,
@@ -26,6 +27,7 @@ from configs.house_config import HOUSE_CONFIG
 st.set_page_config(page_title="House Recommendation Study", layout="centered")
 hide_sidebar_nav()
 route = validate_and_store_route()
+maybe_show_step1_welcome_modal(route)
 
 from model_loader import load_model_bundle
 bundle = load_model_bundle("house")
@@ -270,6 +272,8 @@ if submit:
             "meta": meta,
             "shap_df": shap_df,
             "base_value": base_value,
+            "bundle": bundle,
+            "x_row": x,
             "xai_agg": xai_agg,
             "xai_rank_list": xai_rank_list,
         }

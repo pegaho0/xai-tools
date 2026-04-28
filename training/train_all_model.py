@@ -6,8 +6,9 @@ import pandas as pd
 import shap
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
@@ -24,16 +25,17 @@ def train_and_save_bundle(df, feature_cols, target_col, num_features, output_pat
     pre = ColumnTransformer(
     transformers=[
         ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), cat_features),
-        ("num", StandardScaler(), num_features),
+        ("num", "passthrough", num_features),
     ],
     remainder="drop",
     sparse_threshold=0.0,
     )
 
+    # Main predictive model: Random Forest. It is tree-based, so TreeSHAP can explain it exactly and efficiently.
     clf = RandomForestClassifier(
-        n_estimators=350,
-        max_depth=12,
-        min_samples_leaf=3,
+        n_estimators=250,
+        max_depth=8,
+        min_samples_leaf=4,
         random_state=random_state,
         n_jobs=-1,
         class_weight="balanced_subsample",
@@ -51,13 +53,26 @@ def train_and_save_bundle(df, feature_cols, target_col, num_features, output_pat
 
     explainer = shap.TreeExplainer(pipe.named_steps["clf"])
 
+    # Readable surrogate tree: trained on the main model predictions, not on the original labels.
+    # This keeps the displayed tree simple while preserving the main model as the source of recommendations.
+    X_all_trans = pipe.named_steps["pre"].transform(X)
+    X_all_dense = X_all_trans.toarray() if hasattr(X_all_trans, "toarray") else np.asarray(X_all_trans)
+    pseudo_y = pipe.predict(X)
+    surrogate_tree = DecisionTreeClassifier(
+        max_depth=4,
+        min_samples_leaf=25,
+        random_state=random_state,
+    )
+    surrogate_tree.fit(X_all_dense, pseudo_y)
+
     bundle = {
         "model": pipe,
         "explainer": explainer,
         "feature_names": feature_names,
         "num_features": num_features,
         "background_data": X_bg_dense,
-        "model_type": "tree",
+        "model_type": "random_forest_tree_shap",
+        "surrogate_tree": surrogate_tree,
     }
 
     joblib.dump(bundle, output_path)
