@@ -32,6 +32,43 @@ def hide_sidebar_nav():
             [data-testid="stAppViewContainer"] {
                 background: #FFFFFF;
             }
+            html, body, [data-testid="stAppViewContainer"] {
+                color-scheme: light !important;
+                background: #FFFFFF !important;
+                color: #111827 !important;
+            }
+
+            /* Keep typography readable even if browser/extension forces dark mode */
+            [data-testid="stAppViewContainer"] h1,
+            [data-testid="stAppViewContainer"] h2,
+            [data-testid="stAppViewContainer"] h3,
+            [data-testid="stAppViewContainer"] p,
+            [data-testid="stAppViewContainer"] label,
+            [data-testid="stAppViewContainer"] span {
+                color: #111827 !important;
+            }
+
+            /* Welcome modal polish */
+            div[data-testid="stDialog"] > div {
+                border-radius: 16px !important;
+                border: 1px solid #E5E7EB !important;
+            }
+
+            .welcome-modal-title {
+                text-align: center;
+                font-size: 32px;
+                font-weight: 800;
+                color: #111827;
+                margin: 6px 0 14px 0;
+            }
+
+            .welcome-modal-body {
+                font-size: 20px;
+                line-height: 1.7;
+                color: #374151;
+                text-align: left;
+                margin-bottom: 18px;
+            }
 
             .block-container {
                 max-width: 1120px;
@@ -196,6 +233,21 @@ def hide_sidebar_nav():
             div[data-baseweb="select"] {
                 max-width: 860px !important;
                 width: 100% !important;
+            }
+
+            div[data-baseweb="input"] input {
+                background: #F3F4F6 !important;
+                color: #111827 !important;
+            }
+
+            div[data-baseweb="input"] input::placeholder {
+                color: #6B7280 !important;
+                opacity: 1 !important;
+            }
+
+            div[data-baseweb="select"] > div {
+                background: #F3F4F6 !important;
+                color: #111827 !important;
             }
 
             .stButton > button {
@@ -406,14 +458,21 @@ def maybe_show_step1_welcome_modal(route: dict):
     if st.session_state.get(seen_key, False):
         return
 
-    @st.dialog("Welcome to the study")
+    @st.dialog("")
     def _welcome_dialog():
-        st.markdown("Thank you for participating in this research.")
-        st.markdown("")
-        st.markdown("This study has three steps. In each step, there is one application that gives you some recommendations.")
-        st.markdown("After using each application, there is a short survey about that application.")
-        st.markdown("")
-        st.markdown("Please complete the survey after each step and make sure to complete all three steps carefully.")
+        st.markdown("<div class='welcome-modal-title'>Welcome to our experiment!</div>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class='welcome-modal-body'>
+                Thank you for participating in this research.<br><br>
+                This study has three steps. In each step, there is one application
+                that gives you some recommendations.<br><br>
+                After using each application, there is a short survey about that application.<br><br>
+                Please complete the survey after each step and make sure to complete all three steps carefully.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         if st.button("OK", type="primary", use_container_width=True):
             st.session_state[seen_key] = True
