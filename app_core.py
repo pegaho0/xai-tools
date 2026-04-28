@@ -1183,6 +1183,29 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
     st.session_state[state_key] = ratings
     return ratings, all_answered
 
+def _qualtrics_input_key(task_name: str, input_key: str) -> str:
+    task = str(task_name or "").strip().lower()
+    normalized = str(input_key or "").strip().lower()
+
+    alias_map = {
+        "pizza": {
+            "max_price": "maximum_price",
+            "dietary_restriction": "dietary_restriction_allergy",
+            "rating_importance": "customer_rating",
+            "free_delivery_importance": "free_delivery",
+        },
+        "tour": {
+            "budget": "budget",
+            "rating_importance": "rating_importance",
+        },
+        "house": {
+            "budget": "budget",
+        },
+    }
+
+    mapped = alias_map.get(task, {}).get(normalized, normalized)
+    return f"{task}_mm_{mapped}" if task else f"mm_{mapped}"
+
 def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
     step = route["step"]
     if step not in survey_map:
@@ -1205,14 +1228,14 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
     }
 
     for k, v in payload["inputs"].items():
-        params[k] = v
+        params[_qualtrics_input_key(task_name, k)] = v
 
     for k, v in payload["mental_model_ratings"].items():
         safe_key = k.lower().replace(" ", "_").replace("/", "_").replace("-", "_")
         params[f"mm_rating_{safe_key}"] = v
 
     for i, item in enumerate(payload["xai_rank_list"], start=1):
-        params[f"xai_rank_{i}"] = item
+        params[f"{task_name}_xai_rank_{i}"] = item
 
     return f"{base_url}?{urlencode(params)}"
 
