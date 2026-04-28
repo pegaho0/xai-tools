@@ -497,7 +497,8 @@ def maybe_show_step1_welcome_modal(route: dict):
     # Streamlit Cloud/runtime differences can make st.dialog unavailable or invalid
     # in some contexts. Fallback keeps the experiment usable instead of crashing.
     try:
-        dialog_decorator = st.dialog("Welcome")
+        # Streamlit requires a non-empty title; a single space keeps header text invisible.
+        dialog_decorator = st.dialog(" ")
         dialog_decorator(_welcome_content)()
     except Exception:
         st.markdown(
