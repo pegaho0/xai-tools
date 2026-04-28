@@ -1,8 +1,9 @@
 import streamlit as st
 
-from app_core import q
+from app_core import hide_sidebar_nav, q
 
 st.set_page_config(page_title="Study Controller", layout="centered")
+hide_sidebar_nav()
 
 pid = q("pid")
 group = q("group")
@@ -38,7 +39,10 @@ if expected_app and app != expected_app:
     errors.append(f"Step/app mismatch. step={step} should use {expected_app}, but got {app}")
 
 if errors:
-    st.error("Routing error. Please start from the main study link.")
+    st.error("Routing error. Missing or invalid URL parameters.")
+    if "Invalid group" in errors:
+        st.info("`group` is required and must be `visual` or `text`.")
+    st.caption(f"Details: {', '.join(errors)}")
     st.stop()
 
 st.session_state["pid"] = pid
