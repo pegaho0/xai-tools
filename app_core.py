@@ -49,11 +49,26 @@ def hide_sidebar_nav():
             }
 
             /* Welcome modal polish */
+            div[data-testid="stDialog"] {
+                position: fixed !important;
+                inset: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 24px !important;
+                background: rgba(15, 23, 42, 0.38) !important;
+                z-index: 99999 !important;
+            }
+
             div[data-testid="stDialog"] > div {
                 border-radius: 16px !important;
                 border: 1px solid #E5E7EB !important;
                 background: #FFFFFF !important;
                 color: #111827 !important;
+                width: min(720px, 92vw) !important;
+                max-width: 720px !important;
+                box-shadow: 0 20px 60px rgba(15, 23, 42, 0.30) !important;
+                padding: 14px 18px 16px 18px !important;
             }
 
             /* Hide Streamlit dialog header title (top "Welcome") */
@@ -862,16 +877,16 @@ def plot_tree_shap_summary_like_reference(bundle: dict, payload: dict, feature_g
     ax_swarm.axvline(0, color="#4A4A4A", linewidth=1.05, alpha=0.95)
     ax_swarm.set_yticks(y_positions)
     ax_swarm.set_yticklabels(ordered, fontsize=12)
-    # Put beeswarm feature labels on the right to avoid overlap with left bar chart labels.
-    ax_swarm.yaxis.tick_right()
-    ax_swarm.yaxis.set_label_position("right")
+    # Keep beeswarm feature labels visible between plots.
+    ax_swarm.yaxis.tick_left()
+    ax_swarm.yaxis.set_label_position("left")
     ax_swarm.invert_yaxis()
     ax_swarm.set_xlabel("SHAP value (impact on model output)", fontsize=14, labelpad=11)
     ax_swarm.set_title("SHAP Summary – All Features", fontsize=17, fontweight="bold", pad=14)
     ax_swarm.grid(axis="x", color="#D7D7D7", linestyle="-", linewidth=0.9, alpha=0.8)
     ax_swarm.grid(axis="y", color="#ECECEC", linestyle="-", linewidth=0.7, alpha=0.85)
     ax_swarm.tick_params(axis="x", labelsize=12, pad=5)
-    ax_swarm.tick_params(axis="y", length=0, pad=8)
+    ax_swarm.tick_params(axis="y", labelleft=True, labelright=False, length=0, pad=6)
     ax_swarm.spines["top"].set_visible(False)
     ax_swarm.spines["right"].set_visible(False)
     ax_swarm.spines["left"].set_color("#555555")
