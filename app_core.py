@@ -458,8 +458,7 @@ def maybe_show_step1_welcome_modal(route: dict):
     if st.session_state.get(seen_key, False):
         return
 
-    @st.dialog("Welcome")
-    def _welcome_dialog():
+    def _welcome_content():
         st.markdown("<div class='welcome-modal-title'>Welcome to our experiment!</div>", unsafe_allow_html=True)
         st.markdown(
             """
@@ -478,7 +477,20 @@ def maybe_show_step1_welcome_modal(route: dict):
             st.session_state[seen_key] = True
             st.rerun()
 
-    _welcome_dialog()
+    # Streamlit Cloud/runtime differences can make st.dialog unavailable or invalid
+    # in some contexts. Fallback keeps the experiment usable instead of crashing.
+    try:
+        dialog_decorator = st.dialog("Welcome")
+        dialog_decorator(_welcome_content)()
+    except Exception:
+        st.markdown(
+            """
+            <div style="border:1px solid #E5E7EB; border-radius:14px; padding:16px 18px; background:#FFFFFF; margin-bottom:14px;">
+            """,
+            unsafe_allow_html=True,
+        )
+        _welcome_content()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _to_dense_1d(mat):
