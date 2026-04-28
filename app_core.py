@@ -52,20 +52,29 @@ def hide_sidebar_nav():
             div[data-testid="stDialog"] > div {
                 border-radius: 16px !important;
                 border: 1px solid #E5E7EB !important;
+                background: #FFFFFF !important;
+                color: #111827 !important;
+            }
+
+            /* Hide Streamlit dialog header title (top "Welcome") */
+            div[data-testid="stDialog"] h1,
+            div[data-testid="stDialog"] h2,
+            div[data-testid="stDialog"] [data-testid="stHeading"] {
+                display: none !important;
             }
 
             .welcome-modal-title {
                 text-align: center;
                 font-size: 32px;
                 font-weight: 800;
-                color: #111827;
+                color: #111827 !important;
                 margin: 6px 0 14px 0;
             }
 
             .welcome-modal-body {
                 font-size: 20px;
                 line-height: 1.7;
-                color: #374151;
+                color: #374151 !important;
                 text-align: left;
                 margin-bottom: 18px;
             }
@@ -115,6 +124,7 @@ def hide_sidebar_nav():
 
             div[role="radiogroup"] label {
                 margin-right: 6px !important;
+                color: #111827 !important;
             }
 
             .cad-help {
@@ -238,6 +248,7 @@ def hide_sidebar_nav():
             div[data-baseweb="input"] input {
                 background: #F3F4F6 !important;
                 color: #111827 !important;
+                border-color: #D1D5DB !important;
             }
 
             div[data-baseweb="input"] input::placeholder {
@@ -248,6 +259,12 @@ def hide_sidebar_nav():
             div[data-baseweb="select"] > div {
                 background: #F3F4F6 !important;
                 color: #111827 !important;
+                border-color: #D1D5DB !important;
+            }
+
+            /* Radio visibility in forced dark mode */
+            div[data-testid="stRadio"] input[type="radio"] {
+                accent-color: #2563EB !important;
             }
 
             .stButton > button {
