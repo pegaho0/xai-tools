@@ -861,14 +861,17 @@ def plot_tree_shap_summary_like_reference(bundle: dict, payload: dict, feature_g
 
     ax_swarm.axvline(0, color="#4A4A4A", linewidth=1.05, alpha=0.95)
     ax_swarm.set_yticks(y_positions)
-    ax_swarm.set_yticklabels([])
+    ax_swarm.set_yticklabels(ordered, fontsize=12)
+    # Put beeswarm feature labels on the right to avoid overlap with left bar chart labels.
+    ax_swarm.yaxis.tick_right()
+    ax_swarm.yaxis.set_label_position("right")
     ax_swarm.invert_yaxis()
     ax_swarm.set_xlabel("SHAP value (impact on model output)", fontsize=14, labelpad=11)
     ax_swarm.set_title("SHAP Summary – All Features", fontsize=17, fontweight="bold", pad=14)
     ax_swarm.grid(axis="x", color="#D7D7D7", linestyle="-", linewidth=0.9, alpha=0.8)
     ax_swarm.grid(axis="y", color="#ECECEC", linestyle="-", linewidth=0.7, alpha=0.85)
     ax_swarm.tick_params(axis="x", labelsize=12, pad=5)
-    ax_swarm.tick_params(axis="y", length=0)
+    ax_swarm.tick_params(axis="y", length=0, pad=8)
     ax_swarm.spines["top"].set_visible(False)
     ax_swarm.spines["right"].set_visible(False)
     ax_swarm.spines["left"].set_color("#555555")
@@ -884,7 +887,7 @@ def plot_tree_shap_summary_like_reference(bundle: dict, payload: dict, feature_g
     cbar.ax.tick_params(labelsize=11, length=0, pad=6)
     cbar.outline.set_visible(False)
 
-    fig.subplots_adjust(left=0.13, right=0.975, top=0.88, bottom=0.16)
+    fig.subplots_adjust(left=0.13, right=0.985, top=0.88, bottom=0.16)
     return fig
 
 def get_tree_model_from_bundle(bundle: dict):
