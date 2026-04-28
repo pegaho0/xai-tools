@@ -801,16 +801,16 @@ def plot_tree_shap_summary_like_reference(bundle: dict, payload: dict, feature_g
 
     # Keep this figure moderate in pixel width. Huge matplotlib figures get
     # downscaled by Streamlit and make the text look tiny.
-    fig = plt.figure(figsize=(18.5, fig_height), dpi=150)
+    fig = plt.figure(figsize=(14.2, fig_height), dpi=140)
     gs = fig.add_gridspec(
         nrows=1,
-        ncols=3,
-        width_ratios=[1.08, 1.22, 0.06],
-        wspace=0.38,
+        ncols=4,
+        width_ratios=[1.08, 1.16, 0.22, 0.06],
+        wspace=0.20,
     )
     ax_bar = fig.add_subplot(gs[0, 0])
     ax_swarm = fig.add_subplot(gs[0, 1])
-    ax_cbar = fig.add_subplot(gs[0, 2])
+    ax_cbar = fig.add_subplot(gs[0, 3])
 
     from matplotlib.colors import LinearSegmentedColormap
     cmap = LinearSegmentedColormap.from_list(
@@ -877,16 +877,16 @@ def plot_tree_shap_summary_like_reference(bundle: dict, payload: dict, feature_g
     ax_swarm.axvline(0, color="#4A4A4A", linewidth=1.05, alpha=0.95)
     ax_swarm.set_yticks(y_positions)
     ax_swarm.set_yticklabels(ordered, fontsize=12)
-    # Keep beeswarm feature labels visible between plots.
-    ax_swarm.yaxis.tick_left()
-    ax_swarm.yaxis.set_label_position("left")
+    # Keep beeswarm labels on the right; a dedicated spacer column prevents overlap.
+    ax_swarm.yaxis.tick_right()
+    ax_swarm.yaxis.set_label_position("right")
     ax_swarm.invert_yaxis()
     ax_swarm.set_xlabel("SHAP value (impact on model output)", fontsize=14, labelpad=11)
     ax_swarm.set_title("SHAP Summary – All Features", fontsize=17, fontweight="bold", pad=14)
     ax_swarm.grid(axis="x", color="#D7D7D7", linestyle="-", linewidth=0.9, alpha=0.8)
     ax_swarm.grid(axis="y", color="#ECECEC", linestyle="-", linewidth=0.7, alpha=0.85)
     ax_swarm.tick_params(axis="x", labelsize=12, pad=5)
-    ax_swarm.tick_params(axis="y", labelleft=True, labelright=False, length=0, pad=6)
+    ax_swarm.tick_params(axis="y", labelleft=False, labelright=True, length=0, pad=8)
     ax_swarm.spines["top"].set_visible(False)
     ax_swarm.spines["right"].set_visible(False)
     ax_swarm.spines["left"].set_color("#555555")
@@ -902,7 +902,7 @@ def plot_tree_shap_summary_like_reference(bundle: dict, payload: dict, feature_g
     cbar.ax.tick_params(labelsize=11, length=0, pad=6)
     cbar.outline.set_visible(False)
 
-    fig.subplots_adjust(left=0.13, right=0.985, top=0.88, bottom=0.16)
+    fig.subplots_adjust(left=0.10, right=0.985, top=0.88, bottom=0.16)
     return fig
 
 def get_tree_model_from_bundle(bundle: dict):
