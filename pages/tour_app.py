@@ -7,6 +7,7 @@ if str(ROOT) not in sys.path:
 
 import pandas as pd
 import streamlit as st
+import app_core
 
 from app_core import (
     aggregate_shap_to_study_features,
@@ -14,7 +15,6 @@ from app_core import (
     compute_shap_for_row,
     hide_sidebar_nav,
     init_result_state,
-    maybe_show_step1_welcome_modal,
     render_cad_text_input,
     render_choice_field,
     render_generic_result,
@@ -27,7 +27,8 @@ from configs.tour_config import TOUR_CONFIG
 st.set_page_config(page_title="Tour Recommendation Study", layout="centered")
 hide_sidebar_nav()
 route = validate_and_store_route()
-maybe_show_step1_welcome_modal(route)
+if hasattr(app_core, "maybe_show_step1_welcome_modal"):
+    app_core.maybe_show_step1_welcome_modal(route)
 
 from model_loader import load_model_bundle
 bundle = load_model_bundle("tour")
