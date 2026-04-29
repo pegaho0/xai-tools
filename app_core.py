@@ -1118,6 +1118,8 @@ def render_clickable_visual_tree(payload: dict, config: dict):
 
 def render_readable_decision_path(payload: dict, config: dict):
     render_clickable_visual_tree(payload, config)
+
+
 def init_result_state(task_key: str):
     result_ready_key = f"{task_key}_result_ready"
     result_payload_key = f"{task_key}_result_payload"
@@ -1149,14 +1151,13 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
 
     for feature in feature_labels:
         safe_feature = (
-            feature.lower()
+            str(feature).lower()
             .replace(" ", "_")
             .replace("/", "_")
             .replace("-", "_")
         )
         key = f"{state_key}_{safe_feature}"
 
-        # Question + 1–7 scale on one row (equal halves: room for full question + scale).
         outer = st.columns([6, 6], gap="small")
 
         with outer[0]:
@@ -1184,34 +1185,46 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
     return ratings, all_answered
 
 
-from urllib.parse import urlencode
-import re
-
-
 def clean_name(s):
+    """
+    Normalize visible feature labels into the exact suffix used in Qualtrics.
+    Example:
+        'Dietary restriction / allergy' -> 'dietary_restriction_allergy'
+        'Importance of customer rating' -> 'importance_of_customer_rating'
+    """
     s = str(s).lower().strip()
     s = s.replace("&", "and")
-    s = s.replace("/", "")
-    s = s.replace("-", "_")
-    s = re.sub(r"\s+", "_", s)
-    s = re.sub(r"[^a-z0-9_]", "", s)
+    s = s.replace("/", " ")
+    s = s.replace("-", " ")
+    s = re.sub(r"[^a-z0-9]+", "_", s)
     s = re.sub(r"_+", "_", s)
     return s.strip("_")
 
 
-def build_qualtrics_params(payload, task):
+def build_qualtrics_params(payload: dict, task_name: str) -> dict:
+    """
+    Build only the Qualtrics embedded-data parameters that must be saved.
+
+    Output examples:
+        pizza_mm_maximum_price=1
+        pizza_xai_rank_1=Pizza style
+        tour_mm_budget=2
+        house_xai_rank_1=City
+    """
     params = {}
 
-    mapping = {
-        # 🍕 pizza
+    mental_model_name_map = {
+        # Pizza
         "maximum_price": "maximum_price",
         "pizza_style": "pizza_style",
         "ingredient_preference": "ingredient_preference",
         "dietary_restriction_allergy": "dietary_restriction_allergy",
         "importance_of_customer_rating": "customer_rating",
+        "customer_rating": "customer_rating",
         "importance_of_free_delivery": "free_delivery",
+        "free_delivery": "free_delivery",
 
-        # 🌍 tour
+        # Tour
         "budget": "budget",
         "trip_duration": "trip_duration",
         "preferred_region": "preferred_region",
@@ -1225,7 +1238,7 @@ def build_qualtrics_params(payload, task):
         "safety_importance": "safety_importance",
         "rating_importance": "rating_importance",
 
-        # 🏠 house
+        # House
         "city": "city",
         "property_type": "property_type",
         "bedrooms": "bedrooms",
@@ -1245,96 +1258,41 @@ def build_qualtrics_params(payload, task):
         "family_suitability": "family_suitability",
     }
 
-    # mental model
-    for k, v in payload.get("mental_model_ratings", {}).items():
-        key = clean_name(k)
-        if key in mapping:
-            params[f"{task}_mm_{mapping[key]}"] = v
+    # Mental-model ratings
+    for feature_label, rating in payload.get("mental_model_ratings", {}).items():
+        suffix = mental_model_name_map.get(clean_name(feature_label))
+        if suffix is not None and rating is not None:
+            params[f"{task_name}_mm_{suffix}"] = rating
 
-    # XAI ranking
-    for i, f in enumerate(payload.get("xai_rank_list", []), 1):
-        params[f"{task}_xai_rank_{i}"] = f
-
-    return params
-
-
-from urllib.parse import urlencode
-import re
-
-
-def clean_name(s):
-    s = str(s).lower().strip()
-    s = s.replace("&", "and")
-    s = s.replace("/", "")
-    s = s.replace("-", "_")
-    s = re.sub(r"\s+", "_", s)
-    s = re.sub(r"[^a-z0-9_]", "", s)
-    s = re.sub(r"_+", "_", s)
-    return s.strip("_")
-
-
-def build_qualtrics_params(payload, task):
-    params = {}
-
-    mapping = {
-        # 🍕 pizza
-        "maximum_price": "maximum_price",
-        "pizza_style": "pizza_style",
-        "ingredient_preference": "ingredient_preference",
-        "dietary_restriction_allergy": "dietary_restriction_allergy",
-        "importance_of_customer_rating": "customer_rating",
-        "importance_of_free_delivery": "free_delivery",
-
-        # 🌍 tour
-        "budget": "budget",
-        "trip_duration": "trip_duration",
-        "preferred_region": "preferred_region",
-        "preferred_climate": "preferred_climate",
-        "travel_style": "travel_style",
-        "group_type": "group_type",
-        "accommodation_level": "accommodation_level",
-        "food_interest": "food_interest",
-        "transportation_comfort": "transportation_comfort",
-        "season": "season",
-        "safety_importance": "safety_importance",
-        "rating_importance": "rating_importance",
-
-        # 🏠 house
-        "city": "city",
-        "property_type": "property_type",
-        "bedrooms": "bedrooms",
-        "bathrooms": "bathrooms",
-        "area_size": "area_size",
-        "distance_to_downtown": "distance_to_downtown",
-        "public_transport_access": "public_transport_access",
-        "school_quality": "school_quality",
-        "safety": "safety",
-        "noise_level": "noise_level",
-        "parking": "parking",
-        "garden": "garden",
-        "view_quality": "view_quality",
-        "building_age": "building_age",
-        "investment_potential": "investment_potential",
-        "property_tax_sensitivity": "property_tax_sensitivity",
-        "family_suitability": "family_suitability",
-    }
-
-    # mental model
-    for k, v in payload.get("mental_model_ratings", {}).items():
-        key = clean_name(k)
-        if key in mapping:
-            params[f"{task}_mm_{mapping[key]}"] = v
-
-    # XAI ranking
-    for i, f in enumerate(payload.get("xai_rank_list", []), 1):
-        params[f"{task}_xai_rank_{i}"] = f
+    # XAI / SHAP ranking
+    for i, feature_label in enumerate(payload.get("xai_rank_list", []), start=1):
+        if feature_label is not None:
+            params[f"{task_name}_xai_rank_{i}"] = feature_label
 
     return params
 
 
-def build_return_url(route, survey_map, payload, task_name):
+def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
+    """
+    Build the Qualtrics survey URL after a Streamlit app is completed.
 
-    base_url = survey_map[str(route["step"])]
+    Important:
+    This function intentionally does NOT send the old names:
+        mm_rating_...
+        xai_rank_...
+
+    It sends the exact names you defined in Qualtrics:
+        pizza_mm_..., pizza_xai_rank_...
+        tour_mm_..., tour_xai_rank_...
+        house_mm_..., house_xai_rank_...
+    """
+    step = str(route["step"]).strip()
+
+    if step not in survey_map:
+        st.error("Invalid survey routing step.")
+        st.stop()
+
+    base_url = survey_map[step]
 
     params = {
         "pid": route["pid"],
@@ -1344,7 +1302,6 @@ def build_return_url(route, survey_map, payload, task_name):
         "app3": route["app3"],
         "step": route["step"],
         "current_app": route["app"],
-
         "task": task_name,
         "rec_id": payload.get("recommended_id", ""),
         "rec_name": payload.get("recommended_name", ""),
