@@ -8,15 +8,11 @@ MODELS_DIR = Path("models")
 MODELS_DIR.mkdir(exist_ok=True)
 
 MODEL_FILE_IDS = {
-    "pizza": "1f-3vsRGPHI869LPjpj6uYDVJKI-xCXQo",
-    "tour": "1rMZGC8tDHz4OTwUorqiT9SsRN05QszYm",
-    "house": "1asO_dOsfbMMDUMcuOcFOVXyeKTBhDj7G",
+    "pizza": "1pKx5ofw02NOP0F5erODss6qiKnlWTHA0",
+    "tour": "1lxIzJ8f6wCX9KGyaAJXdE_Y08OH5Wg0X",
+    "house": "1hZWVVw6WnIWVciJIaMofsc6ZAToLPf0y",
 }
-MODEL_URLS = {
-    "pizza": "https://drive.google.com/file/d/1f-3vsRGPHI869LPjpj6uYDVJKI-xCXQo/view?usp=drive_link",
-    "tour": "https://drive.google.com/file/d/1rMZGC8tDHz4OTwUorqiT9SsRN05QszYm/view?usp=drive_link",
-    "house": "https://drive.google.com/file/d/1asO_dOsfbMMDUMcuOcFOVXyeKTBhDj7G/view?usp=drive_link"
-}
+
 MODEL_PATHS = {
     "pizza": MODELS_DIR / "pizza_bundle.joblib",
     "tour": MODELS_DIR / "tour_bundle.joblib",
