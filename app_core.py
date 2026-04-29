@@ -1183,49 +1183,160 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
     st.session_state[state_key] = ratings
     return ratings, all_answered
 
-def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: str):
-    """
-    Build the Qualtrics return URL.
 
-    Sends:
-    - common routing variables: pid, group, app1, app2, app3, step, current_app
-    - recommendation result: task, rec_id, rec_name, ts
-    - original app inputs
-    - mental model ratings using Qualtrics names:
-        pizza_mm_...
-        tour_mm_...
-        house_mm_...
-    - SHAP/XAI ranking using Qualtrics names:
-        pizza_xai_rank_1, ...
-        tour_xai_rank_1, ...
-        house_xai_rank_1, ...
-    """
+from urllib.parse import urlencode
+import re
 
-    step = str(route["step"]).strip()
 
-    if step not in survey_map:
-        st.error("Invalid survey routing step.")
-        st.stop()
+def clean_name(s):
+    s = str(s).lower().strip()
+    s = s.replace("&", "and")
+    s = s.replace("/", "")
+    s = s.replace("-", "_")
+    s = re.sub(r"\s+", "_", s)
+    s = re.sub(r"[^a-z0-9_]", "", s)
+    s = re.sub(r"_+", "_", s)
+    return s.strip("_")
 
-    base_url = survey_map[step]
 
-    def safe_name(value):
-        """
-        Convert labels such as:
-        'Maximum price' -> 'maximum_price'
-        'Dietary restriction / allergy' -> 'dietary_restriction_allergy'
-        'Distance to downtown' -> 'distance_to_downtown'
-        """
-        value = str(value).strip().lower()
-        value = value.replace("&", "and")
-        value = value.replace("/", " ")
-        value = value.replace("-", " ")
-        value = re.sub(r"[^a-z0-9]+", "_", value)
-        value = re.sub(r"_+", "_", value)
-        return value.strip("_")
+def build_qualtrics_params(payload, task):
+    params = {}
+
+    mapping = {
+        # 🍕 pizza
+        "maximum_price": "maximum_price",
+        "pizza_style": "pizza_style",
+        "ingredient_preference": "ingredient_preference",
+        "dietary_restriction_allergy": "dietary_restriction_allergy",
+        "importance_of_customer_rating": "customer_rating",
+        "importance_of_free_delivery": "free_delivery",
+
+        # 🌍 tour
+        "budget": "budget",
+        "trip_duration": "trip_duration",
+        "preferred_region": "preferred_region",
+        "preferred_climate": "preferred_climate",
+        "travel_style": "travel_style",
+        "group_type": "group_type",
+        "accommodation_level": "accommodation_level",
+        "food_interest": "food_interest",
+        "transportation_comfort": "transportation_comfort",
+        "season": "season",
+        "safety_importance": "safety_importance",
+        "rating_importance": "rating_importance",
+
+        # 🏠 house
+        "city": "city",
+        "property_type": "property_type",
+        "bedrooms": "bedrooms",
+        "bathrooms": "bathrooms",
+        "area_size": "area_size",
+        "distance_to_downtown": "distance_to_downtown",
+        "public_transport_access": "public_transport_access",
+        "school_quality": "school_quality",
+        "safety": "safety",
+        "noise_level": "noise_level",
+        "parking": "parking",
+        "garden": "garden",
+        "view_quality": "view_quality",
+        "building_age": "building_age",
+        "investment_potential": "investment_potential",
+        "property_tax_sensitivity": "property_tax_sensitivity",
+        "family_suitability": "family_suitability",
+    }
+
+    # mental model
+    for k, v in payload.get("mental_model_ratings", {}).items():
+        key = clean_name(k)
+        if key in mapping:
+            params[f"{task}_mm_{mapping[key]}"] = v
+
+    # XAI ranking
+    for i, f in enumerate(payload.get("xai_rank_list", []), 1):
+        params[f"{task}_xai_rank_{i}"] = f
+
+    return params
+
+
+from urllib.parse import urlencode
+import re
+
+
+def clean_name(s):
+    s = str(s).lower().strip()
+    s = s.replace("&", "and")
+    s = s.replace("/", "")
+    s = s.replace("-", "_")
+    s = re.sub(r"\s+", "_", s)
+    s = re.sub(r"[^a-z0-9_]", "", s)
+    s = re.sub(r"_+", "_", s)
+    return s.strip("_")
+
+
+def build_qualtrics_params(payload, task):
+    params = {}
+
+    mapping = {
+        # 🍕 pizza
+        "maximum_price": "maximum_price",
+        "pizza_style": "pizza_style",
+        "ingredient_preference": "ingredient_preference",
+        "dietary_restriction_allergy": "dietary_restriction_allergy",
+        "importance_of_customer_rating": "customer_rating",
+        "importance_of_free_delivery": "free_delivery",
+
+        # 🌍 tour
+        "budget": "budget",
+        "trip_duration": "trip_duration",
+        "preferred_region": "preferred_region",
+        "preferred_climate": "preferred_climate",
+        "travel_style": "travel_style",
+        "group_type": "group_type",
+        "accommodation_level": "accommodation_level",
+        "food_interest": "food_interest",
+        "transportation_comfort": "transportation_comfort",
+        "season": "season",
+        "safety_importance": "safety_importance",
+        "rating_importance": "rating_importance",
+
+        # 🏠 house
+        "city": "city",
+        "property_type": "property_type",
+        "bedrooms": "bedrooms",
+        "bathrooms": "bathrooms",
+        "area_size": "area_size",
+        "distance_to_downtown": "distance_to_downtown",
+        "public_transport_access": "public_transport_access",
+        "school_quality": "school_quality",
+        "safety": "safety",
+        "noise_level": "noise_level",
+        "parking": "parking",
+        "garden": "garden",
+        "view_quality": "view_quality",
+        "building_age": "building_age",
+        "investment_potential": "investment_potential",
+        "property_tax_sensitivity": "property_tax_sensitivity",
+        "family_suitability": "family_suitability",
+    }
+
+    # mental model
+    for k, v in payload.get("mental_model_ratings", {}).items():
+        key = clean_name(k)
+        if key in mapping:
+            params[f"{task}_mm_{mapping[key]}"] = v
+
+    # XAI ranking
+    for i, f in enumerate(payload.get("xai_rank_list", []), 1):
+        params[f"{task}_xai_rank_{i}"] = f
+
+    return params
+
+
+def build_return_url(route, survey_map, payload, task_name):
+
+    base_url = survey_map[str(route["step"])]
 
     params = {
-        # routing / participant info
         "pid": route["pid"],
         "group": route["group"],
         "app1": route["app1"],
@@ -1234,31 +1345,16 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
         "step": route["step"],
         "current_app": route["app"],
 
-        # recommendation info
         "task": task_name,
         "rec_id": payload.get("recommended_id", ""),
         "rec_name": payload.get("recommended_name", ""),
         "ts": payload.get("timestamp", ""),
     }
 
-    # Send original app inputs too, but prefix them to avoid collisions.
-    # Example: house_budget, pizza_pizza_style, tour_budget
-    for k, v in payload.get("inputs", {}).items():
-        if v is not None:
-            params[f"{task_name}_{safe_name(k)}"] = v
-
-    # Send mental-model ratings with EXACT Qualtrics naming pattern.
-    # Example: house_mm_budget=1
-    for feature_label, rating in payload.get("mental_model_ratings", {}).items():
-        if rating is not None:
-            params[f"{task_name}_mm_{safe_name(feature_label)}"] = rating
-
-    # Send XAI ranking with EXACT Qualtrics naming pattern.
-    # Example: house_xai_rank_1=City
-    for i, feature_label in enumerate(payload.get("xai_rank_list", []), start=1):
-        params[f"{task_name}_xai_rank_{i}"] = feature_label
+    params.update(build_qualtrics_params(payload, task_name))
 
     return f"{base_url}?{urlencode(params)}"
+
 
 def _top_features(payload: dict, n: int = None, min_n: int = 0):
     return payload["xai_agg"]["study_feature"].tolist()
