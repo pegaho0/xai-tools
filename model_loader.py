@@ -12,7 +12,11 @@ MODEL_FILE_IDS = {
     "tour": "1rMZGC8tDHz4OTwUorqiT9SsRN05QszYm",
     "house": "1asO_dOsfbMMDUMcuOcFOVXyeKTBhDj7G",
 }
-
+MODEL_URLS = {
+    "pizza": "https://drive.google.com/file/d/1f-3vsRGPHI869LPjpj6uYDVJKI-xCXQo/view?usp=drive_link",
+    "tour": "https://drive.google.com/file/d/1rMZGC8tDHz4OTwUorqiT9SsRN05QszYm/view?usp=drive_link",
+    "house": "https://drive.google.com/file/d/1asO_dOsfbMMDUMcuOcFOVXyeKTBhDj7G/view?usp=drive_link"
+}
 MODEL_PATHS = {
     "pizza": MODELS_DIR / "pizza_bundle.joblib",
     "tour": MODELS_DIR / "tour_bundle.joblib",
