@@ -8,9 +8,9 @@ MODELS_DIR = Path("models")
 MODELS_DIR.mkdir(exist_ok=True)
 
 MODEL_FILE_IDS = {
-    "pizza": "1pKx5ofw02NOP0F5erODss6qiKnlWTHA0",
-    "tour": "1lxIzJ8f6wCX9KGyaAJXdE_Y08OH5Wg0X",
-    "house": "1hZWVVw6WnIWVciJIaMofsc6ZAToLPf0y",
+    "pizza": "1d-bSlpYT2Ohro3tIuHlkWS3IhwfCQ7sg",
+    "tour": "11DC2t-0dVNzqD7raFIhKAqMcBl3OF1zP",
+    "house": "1VX4SxBniUnP-6FdYQDrYg1r_bBz4Vxg1",
 }
 
 MODEL_PATHS = {
