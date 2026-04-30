@@ -1,5 +1,7 @@
+import html
 import re
 import time
+import textwrap
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -15,6 +17,16 @@ from sklearn import tree
 VALID_GROUPS = {"visual", "text"}
 VALID_APPS = {"app_a", "app_b", "app_c"}
 VALID_STEPS = {"1", "2", "3"}
+
+
+def _render_html(html: str):
+    """Render generated HTML without Markdown treating indented lines as code blocks."""
+    # Streamlit uses Markdown rules before rendering HTML. If any generated
+    # <div> line starts with 4+ spaces, Markdown displays it as a code block.
+    # Therefore every line must be left-stripped, not only textwrap.dedent().
+    cleaned = "\n".join(line.lstrip() for line in str(html).splitlines()).strip()
+    st.markdown(cleaned, unsafe_allow_html=True)
+
 
 
 def hide_sidebar_nav():
@@ -1116,6 +1128,251 @@ def render_clickable_visual_tree(payload: dict, config: dict):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+
+
+def _html_escape(value) -> str:
+    """Small helper for safe HTML labels in Streamlit markdown blocks."""
+    return html.escape("" if value is None else str(value))
+
+
+def _importance_lookup_from_payload(payload: dict) -> dict:
+    """Return {study_feature: importance row} from the already-computed SHAP aggregation."""
+    xai_agg = payload.get("xai_agg")
+    if xai_agg is None or not hasattr(xai_agg, "iterrows"):
+        return {}
+    lookup = {}
+    for _, row in xai_agg.iterrows():
+        feature = str(row.get("study_feature", "")).strip()
+        if feature:
+            lookup[feature] = {
+                "importance": float(row.get("importance", 0.0) or 0.0),
+                "signed_effect": float(row.get("signed_effect", 0.0) or 0.0),
+                "direction": str(row.get("direction", "")),
+                "rank": int(row.get("xai_rank", 0) or 0),
+            }
+    return lookup
+
+
+def _tree_node_feature_label(ctx: dict, node_id: int) -> str:
+    tree_ = ctx["tree"]
+    feature_idx = int(tree_.feature[node_id])
+    if feature_idx < 0:
+        return "Final recommendation"
+    feature_names = ctx.get("feature_names", [])
+    feature_group_map = ctx.get("feature_group_map", {})
+    encoded_name = feature_names[feature_idx] if feature_idx < len(feature_names) else f"Feature {feature_idx}"
+    return base_feature_from_encoded_name(encoded_name, feature_group_map)
+
+
+def _tree_node_branch_taken(ctx: dict, node_id: int, next_node_id: int) -> str:
+    """Return a human-readable branch label for the child selected by the participant."""
+    tree_ = ctx["tree"]
+    if int(tree_.feature[node_id]) < 0:
+        return "Final"
+    left_id = int(tree_.children_left[node_id])
+    right_id = int(tree_.children_right[node_id])
+    if next_node_id == right_id:
+        return "Yes branch"
+    if next_node_id == left_id:
+        return "No branch"
+    return "Selected branch"
+
+
+def _hybrid_path_steps(ctx: dict, payload: dict) -> list:
+    """Create compact path steps: tree rule + matching SHAP importance."""
+    importance_lookup = _importance_lookup_from_payload(payload)
+    steps = []
+    path_nodes = ctx.get("path_nodes", [])
+
+    for pos, node_id in enumerate(path_nodes):
+        is_leaf = node_id == ctx.get("leaf_id") or int(ctx["tree"].feature[node_id]) < 0
+        feature_label = _tree_node_feature_label(ctx, node_id)
+        imp = importance_lookup.get(feature_label, {})
+        next_node = path_nodes[pos + 1] if pos + 1 < len(path_nodes) else None
+        steps.append({
+            "node_id": int(node_id),
+            "position": pos + 1,
+            "is_leaf": bool(is_leaf),
+            "feature": feature_label,
+            "question": _tree_node_question(ctx, node_id),
+            "branch": _tree_node_branch_taken(ctx, node_id, next_node) if next_node is not None else "Final output",
+            "prediction": _tree_prediction_label(ctx["clf"], node_id),
+            "importance": float(imp.get("importance", 0.0) or 0.0),
+            "signed_effect": float(imp.get("signed_effect", 0.0) or 0.0),
+            "rank": int(imp.get("rank", 0) or 0),
+        })
+    return steps
+
+
+def _render_hybrid_top_bars(payload: dict, max_items: int = 7):
+    xai_agg = payload.get("xai_agg")
+    if xai_agg is None or not hasattr(xai_agg, "head") or xai_agg.empty:
+        st.info("SHAP importance values were not available for this explanation.")
+        return
+
+    top = xai_agg.head(max_items).copy()
+    max_imp = float(top["importance"].max()) if "importance" in top else 0.0
+    if max_imp <= 0:
+        max_imp = 1.0
+
+    rows_html = []
+    for _, row in top.iterrows():
+        feature = _html_escape(row.get("study_feature", "Feature"))
+        imp = float(row.get("importance", 0.0) or 0.0)
+        width = max(5, min(100, int(round((imp / max_imp) * 100))))
+        direction = str(row.get("direction", ""))
+        dir_label = "supports" if direction == "push_toward" else "weaker fit"
+        pill_bg = "#DCFCE7" if direction == "push_toward" else "#FEE2E2"
+        pill_color = "#166534" if direction == "push_toward" else "#991B1B"
+        rows_html.append(f"""
+        <div style='margin:10px 0 13px 0;'>
+            <div style='display:flex; justify-content:space-between; align-items:center; gap:10px;'>
+                <div style='font-size:13px; font-weight:750; color:#111827;'>{feature}</div>
+                <div style='font-size:12px; font-weight:750; color:#374151;'>{imp:.3f}</div>
+            </div>
+            <div style='height:10px; border-radius:999px; background:#E5E7EB; overflow:hidden; margin-top:5px;'>
+                <div style='height:10px; width:{width}%; border-radius:999px; background:linear-gradient(90deg,#2563EB,#7C3AED);'></div>
+            </div>
+            <span style='display:inline-block; margin-top:5px; padding:2px 7px; border-radius:999px; background:{pill_bg}; color:{pill_color}; font-size:11px; font-weight:800;'>{dir_label}</span>
+        </div>
+        """)
+
+    _render_html("""
+    <div style='font-size:15px; font-weight:850; color:#111827; margin-bottom:4px;'>Top SHAP factors</div>
+    <div style='font-size:12.5px; color:#6B7280; line-height:1.45; margin-bottom:8px;'>
+    Longer bars mean the factor had stronger influence on the recommendation.
+    </div>
+    """ + "".join(rows_html))
+
+
+def _render_hybrid_path_cards(steps: list, recommended_name: str):
+    if not steps:
+        st.info("No tree path was available for this participant.")
+        return
+
+    max_imp = max([s.get("importance", 0.0) for s in steps] + [1e-9])
+    cards = []
+    for step in steps:
+        if step.get("is_leaf"):
+            cards.append(f"""
+            <div style='border:2px solid #F59E0B; background:#FFFBEB; border-radius:16px; padding:14px 16px; margin:10px 0;'>
+                <div style='font-size:12px; font-weight:850; color:#92400E; text-transform:uppercase;'>Final node</div>
+                <div style='font-size:16px; font-weight:850; color:#111827; margin-top:4px;'>Recommended: {_html_escape(recommended_name)}</div>
+                <div style='font-size:13px; color:#6B7280; margin-top:5px;'>The selected tree path ends here.</div>
+            </div>
+            """)
+            continue
+
+        imp = float(step.get("importance", 0.0) or 0.0)
+        width = max(4, min(100, int(round((imp / max_imp) * 100))))
+        branch = _html_escape(step.get("branch", "Selected branch"))
+        question = _html_escape(step.get("question", ""))
+        feature = _html_escape(step.get("feature", ""))
+        rank = step.get("rank", 0)
+        rank_text = f"Rank #{rank}" if rank else "Tree split feature"
+        cards.append(f"""
+        <div style='border:1px solid #D1D5DB; background:#FFFFFF; border-radius:16px; padding:14px 16px; margin:10px 0; box-shadow:0 2px 10px rgba(15,23,42,0.05);'>
+            <div style='display:flex; justify-content:space-between; gap:10px; align-items:center;'>
+                <div style='font-size:12px; font-weight:850; color:#4F46E5; text-transform:uppercase;'>Step {step.get('position')}</div>
+                <span style='padding:3px 8px; border-radius:999px; background:#EEF2FF; color:#3730A3; font-size:11px; font-weight:850;'>{rank_text}</span>
+            </div>
+            <div style='font-size:15px; font-weight:850; color:#111827; margin-top:6px;'>{question}</div>
+            <div style='font-size:13px; color:#4B5563; margin-top:6px;'>Selected path: <b>{branch}</b></div>
+            <div style='margin-top:9px;'>
+                <div style='display:flex; justify-content:space-between; font-size:12px; color:#6B7280;'>
+                    <span>SHAP importance for {feature}</span><span>{imp:.3f}</span>
+                </div>
+                <div style='height:9px; border-radius:999px; background:#E5E7EB; overflow:hidden; margin-top:5px;'>
+                    <div style='height:9px; width:{width}%; border-radius:999px; background:linear-gradient(90deg,#22C55E,#2563EB);'></div>
+                </div>
+            </div>
+        </div>
+        """)
+
+    _render_html("""
+    <div style='font-size:15px; font-weight:850; color:#111827; margin-bottom:4px;'>Your decision path</div>
+    <div style='font-size:12.5px; color:#6B7280; line-height:1.45; margin-bottom:8px;'>
+    The tree gives the readable route. SHAP shows how strong each route feature was.
+    </div>
+    """ + "".join(cards))
+
+
+def render_hybrid_shap_tree_explanation(payload: dict, config: dict):
+    """
+    Third explanation: combines the decision-tree path with SHAP feature strength.
+    This is intentionally user-facing: the tree provides structure, SHAP provides weight.
+    """
+    ctx = _get_tree_path_context(payload, config)
+    if ctx is None:
+        st.info("Hybrid SHAP + tree explanation could not be displayed. Re-train the bundle with a surrogate_tree and background_data.")
+        return
+
+    steps = _hybrid_path_steps(ctx, payload)
+    recommended_name = payload.get("recommended_name", payload.get("recommended_id", "selected option"))
+    top_features = payload.get("xai_agg")
+    top_feature = "the strongest factors"
+    if top_features is not None and hasattr(top_features, "empty") and not top_features.empty:
+        top_feature = str(top_features.iloc[0].get("study_feature", top_feature))
+
+    with st.container(border=True):
+        st.markdown("### Hybrid SHAP + Decision Tree Explanation")
+        st.markdown(
+            """
+            <div style='color:#4B5563; font-size:14px; line-height:1.55; margin-bottom:12px;'>
+            This view combines two explanations: <b>the tree</b> shows the step-by-step logic, while <b>SHAP</b> shows how strongly each factor influenced the recommendation.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        summary_cols = st.columns([1, 1, 1])
+        with summary_cols[0]:
+            st.markdown(
+                f"""
+                <div style='border:1px solid #E5E7EB; border-radius:14px; padding:13px 15px; background:#F9FAFB; min-height:92px;'>
+                    <div style='font-size:12px; color:#6B7280; font-weight:800; text-transform:uppercase;'>Recommendation</div>
+                    <div style='font-size:17px; color:#111827; font-weight:850; margin-top:5px;'>{_html_escape(recommended_name)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with summary_cols[1]:
+            st.markdown(
+                f"""
+                <div style='border:1px solid #E5E7EB; border-radius:14px; padding:13px 15px; background:#F9FAFB; min-height:92px;'>
+                    <div style='font-size:12px; color:#6B7280; font-weight:800; text-transform:uppercase;'>Strongest SHAP factor</div>
+                    <div style='font-size:17px; color:#111827; font-weight:850; margin-top:5px;'>{_html_escape(top_feature)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with summary_cols[2]:
+            n_steps = max(0, len([s for s in steps if not s.get("is_leaf")]))
+            st.markdown(
+                f"""
+                <div style='border:1px solid #E5E7EB; border-radius:14px; padding:13px 15px; background:#F9FAFB; min-height:92px;'>
+                    <div style='font-size:12px; color:#6B7280; font-weight:800; text-transform:uppercase;'>Tree path length</div>
+                    <div style='font-size:17px; color:#111827; font-weight:850; margin-top:5px;'>{n_steps} decision steps</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        left, right = st.columns([1.25, 1.0], gap="large")
+        with left:
+            _render_hybrid_path_cards(steps, recommended_name)
+        with right:
+            _render_hybrid_top_bars(payload, max_items=7)
+
+        st.markdown(
+            """
+            <div style='border-left:4px solid #2563EB; background:#EFF6FF; padding:12px 14px; border-radius:12px; margin-top:10px; color:#1E3A8A; font-size:13.5px; line-height:1.55;'>
+            <b>How to read it:</b> follow the cards from top to bottom. Each card is one tree decision. The SHAP bar inside the card tells whether that decision feature was also important according to the model's feature-attribution analysis.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 def render_readable_decision_path(payload: dict, config: dict):
     render_clickable_visual_tree(payload, config)
 
@@ -1380,6 +1637,9 @@ def _render_visual_explanation(config: dict, payload: dict):
             )
 
     render_clickable_visual_tree(payload, config)
+
+    # Third explanation: combined tree structure + SHAP importance for easier comparison.
+    render_hybrid_shap_tree_explanation(payload, config)
 
 def _render_text_explanation(config: dict, payload: dict):
     st.subheader("Why this recommendation was made")
