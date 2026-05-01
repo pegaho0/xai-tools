@@ -1419,7 +1419,7 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
 
         with outer[0]:
             st.markdown(
-                f"<div class='mm-feature-label'>{feature} was important in the AI’s decision.</div>",
+                f"<div class='mm-feature-label'>{feature} is important in the AI’s decision.</div>",
                 unsafe_allow_html=True,
             )
 
@@ -1681,3 +1681,953 @@ def timestamp_now() -> int:
 
 def root_path() -> Path:
     return Path(__file__).resolve().parent
+
+
+# -----------------------------------------------------------------------------
+# FINAL OVERRIDE: readable XAI dashboard with SHAP on top and full path-highlighted tree below
+# -----------------------------------------------------------------------------
+
+def _xai_html(value) -> str:
+    return html.escape("" if value is None else str(value))
+
+
+def _xai_prediction_label(ctx: dict, node_id: int) -> str:
+    try:
+        return _tree_prediction_label(ctx["clf"], int(node_id))
+    except Exception:
+        return "selected option"
+
+
+def _xai_node_stats(ctx: dict, node_id: int) -> dict:
+    tree_ = ctx["tree"]
+    node_id = int(node_id)
+    samples = int(tree_.n_node_samples[node_id]) if hasattr(tree_, "n_node_samples") else 0
+    return {"samples": samples, "prediction": _xai_prediction_label(ctx, node_id)}
+
+
+def _xai_split_details(ctx: dict, node_id: int) -> dict:
+    """Return user-facing split details for a node."""
+    tree_ = ctx["tree"]
+    feature_idx = int(tree_.feature[node_id])
+    if feature_idx < 0:
+        stats = _xai_node_stats(ctx, node_id)
+        return {
+            "is_leaf": True,
+            "feature": "Final recommendation",
+            "question": f"Final recommendation: {stats['prediction']}",
+            "condition": "The decision path ends here.",
+            "left_label": "",
+            "right_label": "",
+        }
+
+    feature_names = ctx.get("feature_names", [])
+    feature_group_map = ctx.get("feature_group_map", {})
+    encoded_name = feature_names[feature_idx] if feature_idx < len(feature_names) else f"Feature {feature_idx}"
+    feature_label = base_feature_from_encoded_name(encoded_name, feature_group_map)
+    threshold = float(tree_.threshold[node_id])
+
+    # One-hot encoded category split: feature_category <= 0.5 means category is NOT selected.
+    for prefix, label in feature_group_map.items():
+        if encoded_name.startswith(prefix + "_"):
+            category = encoded_name[len(prefix) + 1:].replace("_", " ")
+            return {
+                "is_leaf": False,
+                "feature": label,
+                "question": f"Is {label.lower()} '{category}'?",
+                "condition": f"The tree checks whether the user's answer for {label.lower()} is '{category}'.",
+                "left_label": "No",
+                "right_label": "Yes",
+            }
+
+    return {
+        "is_leaf": False,
+        "feature": feature_label,
+        "question": f"Is {feature_label.lower()} ≤ {threshold:.2f}?",
+        "condition": f"The tree compares the user's {feature_label.lower()} with {threshold:.2f}.",
+        "left_label": f"Yes, ≤ {threshold:.2f}",
+        "right_label": f"No, > {threshold:.2f}",
+    }
+
+
+def _xai_branch_label(ctx: dict, node_id: int, child_id: int) -> str:
+    details = _xai_split_details(ctx, node_id)
+    tree_ = ctx["tree"]
+    if int(tree_.feature[node_id]) < 0:
+        return "Final"
+    left_id = int(tree_.children_left[node_id])
+    right_id = int(tree_.children_right[node_id])
+    if child_id == left_id:
+        return details.get("left_label", "Left branch")
+    if child_id == right_id:
+        return details.get("right_label", "Right branch")
+    return "Selected branch"
+
+
+def _xai_path_steps(ctx: dict, payload: dict) -> list:
+    path_nodes = ctx.get("path_nodes", [])
+    steps = []
+    for idx, node_id in enumerate(path_nodes):
+        node_id = int(node_id)
+        next_node = int(path_nodes[idx + 1]) if idx + 1 < len(path_nodes) else None
+        details = _xai_split_details(ctx, node_id)
+        stats = _xai_node_stats(ctx, node_id)
+        steps.append({
+            "node_id": node_id,
+            "step": idx + 1,
+            "is_leaf": details["is_leaf"],
+            "feature": details["feature"],
+            "question": details["question"],
+            "condition": details["condition"],
+            "branch": _xai_branch_label(ctx, node_id, next_node) if next_node is not None else "Final output",
+            "samples": stats["samples"],
+            "prediction": str(payload.get("recommended_name", payload.get("recommended_id", stats["prediction"]))),
+        })
+    return steps
+
+
+def _render_readable_shap_card(payload: dict, max_items: int = 8):
+    xai_agg = payload.get("xai_agg")
+    if xai_agg is None or not hasattr(xai_agg, "head") or xai_agg.empty:
+        st.info("SHAP importance values were not available for this explanation.")
+        return
+
+    top = xai_agg.head(max_items).copy()
+    max_imp = float(top["importance"].max()) if "importance" in top else 0.0
+    if max_imp <= 0:
+        max_imp = 1.0
+
+    rows = []
+    for _, row in top.iterrows():
+        feature = _xai_html(row.get("study_feature", "Feature"))
+        imp = float(row.get("importance", 0.0) or 0.0)
+        width = max(3, min(100, int(round((imp / max_imp) * 100))))
+        direction = str(row.get("direction", ""))
+        sentence = "Supported this recommendation." if direction == "push_toward" else "Had weaker fit, but the model still selected this option."
+        rows.append(f"""
+        <div class='xai-shap-row'>
+            <div class='xai-shap-icon'>↗</div>
+            <div class='xai-shap-main'>
+                <div class='xai-shap-topline'>
+                    <span class='xai-shap-name'>{feature}</span>
+                    <span class='xai-shap-value'>{imp:.3f}</span>
+                </div>
+                <div class='xai-shap-note'>{sentence}</div>
+                <div class='xai-shap-track'><div class='xai-shap-fill' style='width:{width}%;'></div></div>
+            </div>
+        </div>
+        """)
+
+    _render_html(f"""
+    <div class='xai-panel'>
+        <div class='xai-panel-header'>
+            <div>
+                <div class='xai-panel-title'>📊 Feature Importance (SHAP)</div>
+                <div class='xai-panel-subtitle'>These are the inputs that had the biggest impact on the model's recommendation.</div>
+            </div>
+            <span class='xai-pill-blue'>Global impact</span>
+        </div>
+        <div class='xai-shap-list'>
+            {''.join(rows)}
+        </div>
+        <div class='xai-tip'>💡 <b>Tip:</b> Longer bars mean that factor had more influence on the recommendation.</div>
+    </div>
+    """)
+
+
+def _render_path_walkthrough(ctx: dict, payload: dict):
+    steps = _xai_path_steps(ctx, payload)
+    recommended_name = payload.get("recommended_name", payload.get("recommended_id", "selected option"))
+    cards = []
+    for s in steps:
+        if s["is_leaf"]:
+            cards.append(f"""
+            <div class='xai-path-card final'>
+                <div class='xai-step-badge final'>Final result</div>
+                <div class='xai-path-question'>Recommended option: {_xai_html(recommended_name)}</div>
+                <div class='xai-path-text'>The green path ends here, so this is the option shown to the user.</div>
+            </div>
+            """)
+        else:
+            cards.append(f"""
+            <div class='xai-path-card selected'>
+                <div class='xai-step-badge'>Step {s['step']}</div>
+                <div class='xai-path-question'>{_xai_html(s['question'])}</div>
+                <div class='xai-path-text'>{_xai_html(s['condition'])}</div>
+                <div class='xai-path-branch'>Selected branch: <b>{_xai_html(s['branch'])}</b></div>
+                <div class='xai-path-meta'>At this point, the tree's likely output is <b>{_xai_html(s['prediction'])}</b> based on {s['samples']} similar training cases.</div>
+            </div>
+            """)
+
+    _render_html(f"""
+    <div class='xai-panel'>
+        <div class='xai-panel-header'>
+            <div>
+                <div class='xai-panel-title'>🧭 Step-by-step decision path</div>
+                <div class='xai-panel-subtitle'>Follow the green path from the first rule to the final recommendation.</div>
+            </div>
+            <span class='xai-pill-green'>Selected path</span>
+        </div>
+        <div class='xai-path-list'>
+            {''.join(cards)}
+        </div>
+    </div>
+    """)
+
+
+def _tree_layout_positions(tree_, node_id=0, depth=0, positions=None, leaf_counter=None):
+    """Assign readable x/y positions to every node in the tree."""
+    if positions is None:
+        positions = {}
+    if leaf_counter is None:
+        leaf_counter = [0]
+
+    left = int(tree_.children_left[node_id])
+    right = int(tree_.children_right[node_id])
+    if left == -1 and right == -1:
+        x = leaf_counter[0]
+        leaf_counter[0] += 1
+        positions[node_id] = (x, -depth)
+        return positions, leaf_counter
+
+    positions, leaf_counter = _tree_layout_positions(tree_, left, depth + 1, positions, leaf_counter)
+    positions, leaf_counter = _tree_layout_positions(tree_, right, depth + 1, positions, leaf_counter)
+    x = (positions[left][0] + positions[right][0]) / 2.0
+    positions[node_id] = (x, -depth)
+    return positions, leaf_counter
+
+
+def _shorten_label(text: str, max_len: int = 30) -> str:
+    text = str(text)
+    return text if len(text) <= max_len else text[:max_len - 1] + "…"
+
+
+def _xai_display_prediction(ctx: dict, payload: dict, node_id: int) -> str:
+    """Use the final app recommendation for selected-path nodes so the tree and result card never disagree."""
+    recommended_name = payload.get("recommended_name", payload.get("recommended_id", "selected option"))
+    path_set = set(int(n) for n in ctx.get("path_nodes", []))
+    if int(node_id) in path_set:
+        return str(recommended_name)
+    return _xai_prediction_label(ctx, int(node_id))
+
+
+def _wrap_tree_text(text: str, width: int = 18, max_lines: int = 3) -> str:
+    """Wrap node text into short lines so boxes become taller, not wider."""
+    import textwrap as _tw
+    clean = str(text).replace("_", " ").strip()
+    lines = _tw.wrap(clean, width=width, break_long_words=False, break_on_hyphens=False)
+    if not lines:
+        return ""
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = lines[-1].rstrip("…") + "…"
+    return "\n".join(lines)
+
+
+def plot_full_tree_with_selected_path(ctx: dict, payload: dict):
+    """Draw the complete tree full-width and highlight the selected path in green.
+
+    This version is optimized for readability: node text is wrapped into 4-5
+    short lines, boxes are taller, vertical spacing is larger, and non-selected
+    nodes use very short labels so they do not collide with each other.
+    """
+    tree_ = ctx["tree"]
+    path_set = set(int(n) for n in ctx.get("path_nodes", []))
+    leaf_id = int(ctx.get("leaf_id", -1))
+    positions, leaf_counter = _tree_layout_positions(tree_, 0)
+    n_leaves = max(1, leaf_counter[0])
+    max_depth = max([-y for _, y in positions.values()] + [1])
+
+    # Wider logical canvas + larger vertical gaps. It still renders full-width
+    # in Streamlit, but the extra logical width prevents sibling boxes colliding.
+    fig_w = max(22.0, min(30.0, n_leaves * 1.18))
+    fig_h = max(11.0, max_depth * 2.45 + 2.2)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h), dpi=210)
+    ax.axis("off")
+
+    x_scale = 1.85 if n_leaves <= 16 else 1.62
+    y_gap = 1.55
+
+    def xy(node):
+        x, y = positions[int(node)]
+        return x * x_scale, y * y_gap
+
+    # Edges first, under the nodes.
+    for node_id in sorted(positions.keys()):
+        x, y = xy(node_id)
+        left = int(tree_.children_left[node_id])
+        right = int(tree_.children_right[node_id])
+        if left != -1:
+            for child, branch_text in [
+                (left, _xai_branch_label(ctx, node_id, left)),
+                (right, _xai_branch_label(ctx, node_id, right)),
+            ]:
+                cx, cy = xy(child)
+                selected_edge = node_id in path_set and child in path_set
+                ax.plot(
+                    [x, cx], [y - 0.34, cy + 0.46],
+                    color="#16A34A" if selected_edge else "#DCE6F0",
+                    linewidth=4.2 if selected_edge else 1.25,
+                    zorder=1,
+                    solid_capstyle="round",
+                )
+                mx, my = (x + cx) / 2.0, (y + cy) / 2.0
+                ax.text(
+                    mx, my + 0.10, _shorten_label(branch_text, 12),
+                    ha="center", va="center", fontsize=8.8,
+                    color="#166534" if selected_edge else "#64748B",
+                    bbox=dict(
+                        boxstyle="round,pad=0.18",
+                        facecolor="#DCFCE7" if selected_edge else "#FFFFFF",
+                        edgecolor="none",
+                        alpha=0.96,
+                    ),
+                    zorder=2,
+                )
+
+    for node_id in sorted(positions.keys()):
+        x, y = xy(node_id)
+        details = _xai_split_details(ctx, node_id)
+        stats = _xai_node_stats(ctx, node_id)
+        in_path = int(node_id) in path_set
+        is_leaf = int(node_id) == leaf_id
+        display_pred = _xai_display_prediction(ctx, payload, int(node_id))
+
+        if is_leaf:
+            fc, ec, lw, title = "#DCFCE7", "#16A34A", 3.8, "FINAL"
+        elif in_path:
+            fc, ec, lw, title = "#ECFDF5", "#16A34A", 3.3, "SELECTED"
+        else:
+            fc, ec, lw, title = "#FFFFFF", "#CBD5E1", 1.2, "OTHER"
+
+        if details["is_leaf"]:
+            if in_path:
+                label = (
+                    f"{title}\n"
+                    f"Recommendation:\n{_wrap_tree_text(display_pred, width=16, max_lines=2)}\n"
+                    f"Cases: {stats['samples']}"
+                )
+                fs = 10.8
+            else:
+                # Keep non-path leaves short; they are context, not the main explanation.
+                label = f"OTHER\n{_wrap_tree_text(display_pred, width=13, max_lines=2)}\nCases: {stats['samples']}"
+                fs = 8.2
+        else:
+            if in_path:
+                question = _wrap_tree_text(details["question"], width=22, max_lines=3)
+                pred = _wrap_tree_text(display_pred, width=17, max_lines=2)
+                label = f"{title}\n{question}\nLikely:\n{pred}\nCases: {stats['samples']}"
+                fs = 10.4
+            else:
+                # Off-path internal boxes are intentionally compact to avoid clutter.
+                question = _wrap_tree_text(details["question"], width=18, max_lines=2)
+                pred = _wrap_tree_text(display_pred, width=13, max_lines=1)
+                label = f"{title}\n{question}\nLikely: {pred}\nCases: {stats['samples']}"
+                fs = 8.1
+
+        ax.text(
+            x, y, label,
+            ha="center", va="center", fontsize=fs,
+            color="#0F172A" if in_path else "#334155",
+            linespacing=1.22,
+            bbox=dict(
+                boxstyle="round,pad=0.62,rounding_size=0.12",
+                facecolor=fc,
+                edgecolor=ec,
+                linewidth=lw,
+            ),
+            zorder=3,
+        )
+
+    xmax = (n_leaves - 1) * x_scale
+    ymin = -max_depth * y_gap - 0.95
+    ax.set_xlim(-1.55, xmax + 1.55)
+    ax.set_ylim(ymin, 1.05)
+    fig.tight_layout(pad=0.2)
+    return fig
+
+def _svg_escape(value) -> str:
+    return html.escape("" if value is None else str(value), quote=True)
+
+
+def _svg_text_lines(text: str, width: int = 20, max_lines: int = 4) -> list:
+    import textwrap as _tw
+    clean = str(text).replace("_", " ").strip()
+    lines = _tw.wrap(clean, width=width, break_long_words=False, break_on_hyphens=False)
+    if not lines:
+        return [""]
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = lines[-1].rstrip("…") + "…"
+    return lines
+
+
+def _interactive_tree_node_lines(ctx: dict, payload: dict, node_id: int) -> tuple[list, str]:
+    """Return compact readable lines for an SVG tree node and a longer hover text."""
+    details = _xai_split_details(ctx, node_id)
+    stats = _xai_node_stats(ctx, node_id)
+    path_set = set(int(n) for n in ctx.get("path_nodes", []))
+    in_path = int(node_id) in path_set
+    is_leaf = int(node_id) == int(ctx.get("leaf_id", -1))
+    display_pred = _xai_display_prediction(ctx, payload, int(node_id))
+
+    if is_leaf:
+        title = "FINAL"
+    elif in_path:
+        title = "SELECTED"
+    else:
+        title = "OTHER"
+
+    if details.get("is_leaf"):
+        main = f"Recommendation: {display_pred}" if in_path else f"{display_pred}"
+        lines = [title] + _svg_text_lines(main, width=19, max_lines=2) + [f"Similar cases: {stats['samples']}"]
+    else:
+        q_lines = _svg_text_lines(details.get("question", ""), width=21 if in_path else 18, max_lines=3 if in_path else 2)
+        pred_lines = _svg_text_lines(f"Likely: {display_pred}", width=20 if in_path else 18, max_lines=2 if in_path else 1)
+        lines = [title] + q_lines + pred_lines + [f"Similar cases: {stats['samples']}"]
+
+    hover_parts = []
+    hover_parts.append(title)
+    hover_parts.append(details.get("question", "Final node"))
+    hover_parts.append(f"Current likely recommendation: {display_pred}")
+    hover_parts.append(f"Similar training cases reaching this box: {stats['samples']}")
+    if in_path:
+        hover_parts.append("This box is on the selected green path.")
+    else:
+        hover_parts.append("This box is another possible branch, not the selected path.")
+    return lines, "\n".join(hover_parts)
+
+
+def _build_interactive_svg_tree_html(ctx: dict, payload: dict) -> tuple[str, int]:
+    """Build a stable SVG tree with hover preview. The original node does not scale, so there is no shaking/flicker."""
+    tree_ = ctx["tree"]
+    path_set = set(int(n) for n in ctx.get("path_nodes", []))
+    leaf_id = int(ctx.get("leaf_id", -1))
+    positions, leaf_counter = _tree_layout_positions(tree_, 0)
+    n_leaves = max(1, leaf_counter[0])
+    max_depth = max([-y for _, y in positions.values()] + [1])
+
+    node_w = 178
+    node_h = 106
+    x_gap = 210 if n_leaves <= 16 else 185
+    y_gap = 148
+    margin_x = 90
+    margin_top = 70
+    margin_bottom = 80
+    svg_w = int(max(1180, (n_leaves - 1) * x_gap + 2 * margin_x + node_w))
+    svg_h = int(margin_top + max_depth * y_gap + margin_bottom + node_h)
+
+    def xy(node):
+        x, y = positions[int(node)]
+        return margin_x + x * x_gap + node_w / 2, margin_top + (-y) * y_gap + node_h / 2
+
+    edge_parts = []
+    label_parts = []
+    for node_id in sorted(positions.keys()):
+        left = int(tree_.children_left[node_id])
+        right = int(tree_.children_right[node_id])
+        if left != -1:
+            x0, y0 = xy(node_id)
+            for child in (left, right):
+                x1, y1 = xy(child)
+                selected_edge = int(node_id) in path_set and int(child) in path_set
+                cls = "edge selected" if selected_edge else "edge"
+                edge_parts.append(
+                    f"<line class='{cls}' x1='{x0:.1f}' y1='{y0 + node_h/2 - 8:.1f}' x2='{x1:.1f}' y2='{y1 - node_h/2 + 8:.1f}' />"
+                )
+                branch = _svg_escape(_shorten_label(_xai_branch_label(ctx, node_id, child), 16))
+                mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+                label_cls = "branch-label selected" if selected_edge else "branch-label"
+                label_parts.append(
+                    f"<text class='{label_cls}' x='{mx:.1f}' y='{my:.1f}' text-anchor='middle'>{branch}</text>"
+                )
+
+    node_parts = []
+    for node_id in sorted(positions.keys()):
+        x, y = xy(node_id)
+        in_path = int(node_id) in path_set
+        is_leaf = int(node_id) == leaf_id
+        lines, hover_text = _interactive_tree_node_lines(ctx, payload, int(node_id))
+        cls = "tree-node selected" if in_path else "tree-node other"
+        if is_leaf:
+            cls = "tree-node final"
+        safe_hover = _svg_escape(hover_text)
+        safe_label_one_line = _svg_escape(" | ".join(lines))
+        rect_x = x - node_w / 2
+        rect_y = y - node_h / 2
+        text_y = rect_y + 22
+        tspans = []
+        for i, line in enumerate(lines[:6]):
+            line_cls = "node-title" if i == 0 else "node-text"
+            dy = 0 if i == 0 else 15
+            tspans.append(
+                f"<tspan class='{line_cls}' x='{x:.1f}' dy='{dy}'>{_svg_escape(line)}</tspan>"
+            )
+        node_parts.append(
+            f"""
+            <g class='{cls}' data-hover='{safe_hover}' aria-label='{safe_label_one_line}' tabindex='0'>
+                <rect x='{rect_x:.1f}' y='{rect_y:.1f}' width='{node_w}' height='{node_h}' rx='10' ry='10'></rect>
+                <text class='node-label' x='{x:.1f}' y='{text_y:.1f}' text-anchor='middle'>{''.join(tspans)}</text>
+            </g>
+            """
+        )
+
+    svg = f"""
+    <svg class='xai-tree-svg' viewBox='0 0 {svg_w} {svg_h}' role='img' aria-label='Complete decision tree'>
+        <g class='tree-edges'>{''.join(edge_parts)}</g>
+        <g class='tree-branch-labels'>{''.join(label_parts)}</g>
+        <g class='tree-nodes'>{''.join(node_parts)}</g>
+    </svg>
+    """
+
+    html_doc = f"""
+    <div class='xai-tree-shell'>
+        <div class='tree-toolbar'>
+            <button type='button' id='zoomIn'>＋ Zoom in</button>
+            <button type='button' id='zoomOut'>－ Zoom out</button>
+            <button type='button' id='zoomReset'>Reset</button>
+            <span>Hover a box to read a larger version. Drag to pan after zooming.</span>
+        </div>
+        <div id='treeViewport' class='tree-viewport'>
+            <div id='treeCanvas' class='tree-canvas'>
+                {svg}
+            </div>
+            <div id='nodePreview' class='node-preview'>Hover over a box to magnify its text.</div>
+        </div>
+    </div>
+    <style>
+        .xai-tree-shell {{ width:100%; border:1px solid #E2E8F0; border-radius:16px; background:#FFFFFF; padding:12px; box-sizing:border-box; }}
+        .tree-toolbar {{ display:flex; align-items:center; gap:8px; margin-bottom:10px; font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#475569; font-size:13px; }}
+        .tree-toolbar button {{ border:1px solid #CBD5E1; background:#F8FAFC; border-radius:10px; padding:7px 10px; font-weight:750; color:#0F172A; cursor:pointer; }}
+        .tree-toolbar button:hover {{ background:#EEF2FF; border-color:#93C5FD; }}
+        .tree-viewport {{ position:relative; width:100%; height:min(74vh, 780px); min-height:560px; overflow:hidden; background:#FFFFFF; border-radius:14px; }}
+        .tree-canvas {{ transform-origin:50% 8%; transition:transform 140ms ease-out; cursor:grab; user-select:none; }}
+        .tree-canvas.dragging {{ cursor:grabbing; transition:none; }}
+        .xai-tree-svg {{ width:100%; height:auto; display:block; }}
+        .edge {{ stroke:#D7E3F0; stroke-width:2.1; stroke-linecap:round; }}
+        .edge.selected {{ stroke:#16A34A; stroke-width:6.0; }}
+        .branch-label {{ font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:15px; font-weight:700; fill:#64748B; }}
+        .branch-label.selected {{ fill:#15803D; font-weight:900; }}
+        .tree-node rect {{ fill:#FFFFFF; stroke:#CBD5E1; stroke-width:2.2; filter:drop-shadow(0 2px 3px rgba(15,23,42,0.07)); transition:stroke-width 120ms ease, filter 120ms ease, fill 120ms ease; }}
+        .tree-node.selected rect {{ fill:#ECFDF5; stroke:#16A34A; stroke-width:4.0; }}
+        .tree-node.final rect {{ fill:#DCFCE7; stroke:#16A34A; stroke-width:4.4; }}
+        .tree-node:hover rect, .tree-node:focus rect {{ stroke:#2563EB; stroke-width:5.2; fill:#EFF6FF; filter:drop-shadow(0 8px 15px rgba(37,99,235,0.24)); }}
+        .tree-node.selected:hover rect, .tree-node.final:hover rect, .tree-node.selected:focus rect, .tree-node.final:focus rect {{ stroke:#15803D; fill:#DCFCE7; filter:drop-shadow(0 8px 15px rgba(22,163,74,0.26)); }}
+        .node-label {{ pointer-events:none; font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill:#0F172A; }}
+        .node-title {{ font-size:15px; font-weight:950; letter-spacing:.02em; }}
+        .node-text {{ font-size:15px; font-weight:760; }}
+        .tree-node.other .node-title, .tree-node.other .node-text {{ fill:#334155; }}
+        .node-preview {{ display:none; position:absolute; right:18px; top:18px; width:min(390px, 42vw); white-space:pre-line; z-index:20; background:#0F172A; color:#FFFFFF; border-radius:18px; padding:18px 20px; font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:18px; line-height:1.45; font-weight:750; box-shadow:0 22px 45px rgba(15,23,42,0.30); pointer-events:none; }}
+        .node-preview.show {{ display:block; }}
+        @media (max-width:900px) {{ .tree-viewport {{ min-height:480px; height:62vh; }} .node-preview {{ width:calc(100% - 36px); left:18px; right:18px; font-size:16px; }} .tree-toolbar {{ flex-wrap:wrap; }} }}
+    </style>
+    <script>
+    (function() {{
+        const viewport = document.getElementById('treeViewport');
+        const canvas = document.getElementById('treeCanvas');
+        const preview = document.getElementById('nodePreview');
+        const zoomIn = document.getElementById('zoomIn');
+        const zoomOut = document.getElementById('zoomOut');
+        const zoomReset = document.getElementById('zoomReset');
+        let scale = 1, tx = 0, ty = 0;
+        let dragging = false, startX = 0, startY = 0, baseX = 0, baseY = 0;
+        function apply() {{ canvas.style.transform = `translate(${{tx}}px, ${{ty}}px) scale(${{scale}})`; }}
+        function setScale(next) {{ scale = Math.max(0.85, Math.min(2.4, next)); if (scale <= 1.01) {{ tx = 0; ty = 0; }} apply(); }}
+        zoomIn.addEventListener('click', () => setScale(scale + 0.18));
+        zoomOut.addEventListener('click', () => setScale(scale - 0.18));
+        zoomReset.addEventListener('click', () => {{ scale = 1; tx = 0; ty = 0; apply(); }});
+        viewport.addEventListener('wheel', (e) => {{ if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); setScale(scale + (e.deltaY < 0 ? 0.12 : -0.12)); }}, {{ passive:false }});
+        viewport.addEventListener('mousedown', (e) => {{ if (scale <= 1.01) return; dragging = true; canvas.classList.add('dragging'); startX = e.clientX; startY = e.clientY; baseX = tx; baseY = ty; }});
+        window.addEventListener('mousemove', (e) => {{ if (!dragging) return; tx = baseX + (e.clientX - startX); ty = baseY + (e.clientY - startY); apply(); }});
+        window.addEventListener('mouseup', () => {{ dragging = false; canvas.classList.remove('dragging'); }});
+        document.querySelectorAll('.tree-node').forEach(node => {{
+            node.addEventListener('mouseenter', () => {{ preview.textContent = node.getAttribute('data-hover') || ''; preview.classList.add('show'); }});
+            node.addEventListener('mouseleave', () => {{ preview.classList.remove('show'); }});
+            node.addEventListener('focus', () => {{ preview.textContent = node.getAttribute('data-hover') || ''; preview.classList.add('show'); }});
+            node.addEventListener('blur', () => {{ preview.classList.remove('show'); }});
+        }});
+        apply();
+    }})();
+    </script>
+    """
+    return html_doc, int(min(920, max(680, svg_h * 0.72 + 86)))
+
+
+def _render_full_tree_panel(ctx: dict, payload: dict):
+    import streamlit.components.v1 as components
+
+    with st.container(border=True):
+        st.markdown("### 🌳 Complete Decision Tree")
+        st.markdown(
+            """
+            <div style='color:#475569; font-size:15px; line-height:1.55; margin-bottom:12px;'>
+            This is the full tree used for the visual explanation. The <b style='color:#16A34A;'>green boxes and green lines</b>
+            show the route followed from the first rule to the final recommendation above. Hover over any box to see a larger readable preview.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        tree_html, height = _build_interactive_svg_tree_html(ctx, payload)
+        components.html(tree_html, height=height, scrolling=False)
+        st.markdown(
+            """
+            <div style='border-left:4px solid #16A34A; background:#F0FDF4; padding:12px 14px; border-radius:12px; color:#14532D; font-size:14px; line-height:1.55; margin-top:12px;'>
+            <b>How to read it:</b> Start at the top. At each question, follow the green line. The final green box is the same recommendation shown in the result card.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+def _inject_xai_dashboard_css():
+    st.markdown(
+        """
+        <style>
+        .block-container { max-width: 1540px !important; }
+        .xai-dashboard-title {
+            font-size: 30px; font-weight: 850; color:#0F172A; margin-top: 18px; margin-bottom: 4px;
+        }
+        .xai-dashboard-subtitle {
+            color:#64748B; font-size:15px; line-height:1.55; margin-bottom:18px;
+        }
+        .xai-panel {
+            border:1px solid #DDE3EA; border-radius:18px; padding:20px 22px; background:#FFFFFF;
+            box-shadow:0 10px 28px rgba(15,23,42,0.055); margin-bottom:18px;
+        }
+        .xai-panel-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }
+        .xai-panel-title { font-size:20px; font-weight:850; color:#0F172A; margin-bottom:6px; }
+        .xai-panel-subtitle { font-size:14px; color:#64748B; line-height:1.5; max-width:760px; }
+        .xai-pill-blue { background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:800; white-space:nowrap; }
+        .xai-pill-green { background:#ECFDF5; color:#166534; border:1px solid #BBF7D0; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:800; white-space:nowrap; }
+        .xai-shap-row { display:flex; gap:13px; align-items:flex-start; padding:13px 0; border-bottom:1px solid #E5E7EB; }
+        .xai-shap-row:last-child { border-bottom:none; }
+        .xai-shap-icon { width:36px; height:36px; border-radius:12px; background:#EFF6FF; color:#2563EB; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:900; flex:0 0 36px; }
+        .xai-shap-main { flex:1; min-width:0; }
+        .xai-shap-topline { display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+        .xai-shap-name { font-size:15px; font-weight:800; color:#0F172A; }
+        .xai-shap-value { font-size:14px; font-weight:850; color:#0F172A; }
+        .xai-shap-note { font-size:12.5px; color:#64748B; margin-top:3px; }
+        .xai-shap-track { height:8px; border-radius:999px; background:#E8EEF5; overflow:hidden; margin-top:8px; }
+        .xai-shap-fill { height:8px; border-radius:999px; background:linear-gradient(90deg,#2563EB,#60A5FA); }
+        .xai-tip { margin-top:14px; border:1px solid #E2E8F0; background:#F8FAFC; border-radius:14px; padding:12px 14px; color:#475569; font-size:13px; line-height:1.5; }
+        .xai-path-list { position:relative; }
+        .xai-path-card { border-radius:16px; padding:14px 16px; margin:12px 0; box-shadow:0 2px 10px rgba(15,23,42,0.045); }
+        .xai-path-card.selected { border:2px solid #16A34A; background:#F0FDF4; }
+        .xai-path-card.final { border:2px solid #16A34A; background:#DCFCE7; }
+        .xai-step-badge { display:inline-block; color:#166534; background:#DCFCE7; border:1px solid #BBF7D0; border-radius:999px; padding:4px 9px; font-size:11px; font-weight:850; text-transform:uppercase; }
+        .xai-step-badge.final { color:#14532D; background:#BBF7D0; }
+        .xai-path-question { font-size:16px; font-weight:850; color:#0F172A; margin-top:8px; }
+        .xai-path-text { font-size:13.5px; color:#475569; margin-top:6px; line-height:1.45; }
+        .xai-path-branch { font-size:13.5px; color:#166534; margin-top:8px; }
+        .xai-path-meta { font-size:12.5px; color:#64748B; margin-top:7px; line-height:1.45; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_visual_explanation(config: dict, payload: dict):
+    """Final user-facing visual explanation: SHAP first, then readable full tree with selected path."""
+    _inject_xai_dashboard_css()
+    st.markdown("<div class='xai-dashboard-title'>How the model made this recommendation</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='xai-dashboard-subtitle'>These visualizations explain the main factors that influenced the model's prediction. SHAP shows feature influence; the decision tree shows the step-by-step route to the result.</div>",
+        unsafe_allow_html=True,
+    )
+
+    all_features = _top_features(payload)
+    if all_features:
+        with st.expander("See all factors ranked by TreeSHAP importance", expanded=False):
+            for i, feature in enumerate(all_features, start=1):
+                st.markdown(f"{i}. **{feature}**")
+
+    ctx = _get_tree_path_context(payload, config)
+
+    # SHAP first, then the complete decision tree full-width.
+    # No separate step-by-step path card, because the tree itself is the explanation.
+    _render_readable_shap_card(payload, max_items=8)
+    if ctx is not None:
+        _render_full_tree_panel(ctx, payload)
+    else:
+        st.warning("Decision tree could not be displayed. Re-train the model bundle with surrogate_tree included.")
+
+# -----------------------------------------------------------------------------
+# FINAL LAYOUT OVERRIDE: narrow centered result/SHAP + full-width CSS/SVG tree
+# -----------------------------------------------------------------------------
+
+def _inject_xai_dashboard_css():
+    """Keep the main app centered; only the tree panel escapes to full browser width."""
+    st.markdown(
+        """
+        <style>
+        /* Do NOT widen Streamlit's main block container here. Forms/result/SHAP stay centered. */
+        .xai-dashboard-title {
+            font-size: 30px; font-weight: 850; color:#0F172A; margin-top: 18px; margin-bottom: 4px;
+        }
+        .xai-dashboard-subtitle {
+            color:#64748B; font-size:15px; line-height:1.55; margin-bottom:18px;
+        }
+        .xai-panel {
+            border:1px solid #DDE3EA; border-radius:18px; padding:20px 22px; background:#FFFFFF;
+            box-shadow:0 10px 28px rgba(15,23,42,0.055); margin-bottom:18px;
+        }
+        .xai-panel-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; }
+        .xai-panel-title { font-size:20px; font-weight:850; color:#0F172A; margin-bottom:6px; }
+        .xai-panel-subtitle { font-size:14px; color:#64748B; line-height:1.5; max-width:760px; }
+        .xai-pill-blue { background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:800; white-space:nowrap; }
+        .xai-shap-row { display:flex; gap:13px; align-items:flex-start; padding:13px 0; border-bottom:1px solid #E5E7EB; }
+        .xai-shap-row:last-child { border-bottom:none; }
+        .xai-shap-icon { width:36px; height:36px; border-radius:12px; background:#EFF6FF; color:#2563EB; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:900; flex:0 0 36px; }
+        .xai-shap-main { flex:1; min-width:0; }
+        .xai-shap-topline { display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+        .xai-shap-name { font-size:15px; font-weight:800; color:#0F172A; }
+        .xai-shap-value { font-size:14px; font-weight:850; color:#0F172A; }
+        .xai-shap-note { font-size:12.5px; color:#64748B; margin-top:3px; }
+        .xai-shap-track { height:8px; border-radius:999px; background:#E8EEF5; overflow:hidden; margin-top:8px; }
+        .xai-shap-fill { height:8px; border-radius:999px; background:linear-gradient(90deg,#2563EB,#60A5FA); }
+        .xai-tip { margin-top:14px; border:1px solid #E2E8F0; background:#F8FAFC; border-radius:14px; padding:12px 14px; color:#475569; font-size:13px; line-height:1.5; }
+
+        /* Only this section is full browser width. */
+        .xai-tree-full-bleed {
+            position: relative;
+            left: 50%;
+            right: 50%;
+            width: 100vw;
+            margin-left: -50vw;
+            margin-right: -50vw;
+            box-sizing: border-box;
+            padding-left: 22px;
+            padding-right: 22px;
+            margin-top: 20px;
+            margin-bottom: 18px;
+        }
+
+        .xai-continue-shell {
+            max-width: 1560px;
+            margin: 0 auto;
+            padding: 0 22px 0 22px;
+            box-sizing: border-box;
+        }
+        .xai-continue-shell [data-testid="stLinkButton"],
+        .xai-continue-shell [data-testid="stButton"] {
+            width: 100% !important;
+            max-width: none !important;
+        }
+        .xai-continue-shell [data-testid="stLinkButton"] a,
+        .xai-continue-shell [data-testid="stButton"] button,
+        .xai-continue-shell a,
+        .xai-continue-shell button {
+            width: 100% !important;
+            max-width: none !important;
+            min-height: 54px !important;
+            border-radius: 13px !important;
+            font-size: 18px !important;
+            font-weight: 850 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .xai-tree-shell {
+            max-width: 1560px;
+            margin: 0 auto;
+            border: 1px solid #DDE3EA;
+            border-radius: 18px;
+            background: #FFFFFF;
+            box-shadow: 0 10px 28px rgba(15,23,42,0.055);
+            padding: 20px 22px 18px 22px;
+        }
+        .xai-tree-title { font-size:24px; font-weight:900; color:#0F172A; margin-bottom:8px; }
+        .xai-tree-subtitle { color:#475569; font-size:15px; line-height:1.55; margin-bottom:14px; }
+        .xai-tree-canvas-wrap {
+            border:1px solid #DDE7F2;
+            border-radius:16px;
+            background:#FFFFFF;
+            overflow:visible;
+            padding: 10px 8px;
+        }
+        .xai-tree-svg { display:block; width:100%; height:auto; overflow:visible; }
+        .xai-tree-help {
+            border-left:4px solid #16A34A;
+            background:#F0FDF4;
+            padding:12px 14px;
+            border-radius:12px;
+            color:#14532D;
+            font-size:14px;
+            line-height:1.55;
+            margin-top:12px;
+        }
+        .xai-tree-svg .edge { stroke:#DCE6F0; stroke-width:2.2; stroke-linecap:round; }
+        .xai-tree-svg .edge.selected { stroke:#16A34A; stroke-width:5.2; }
+        .xai-tree-svg .branch-label { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:26px; font-weight:950; fill:#64748B; }
+        .xai-tree-svg .branch-label.selected { fill:#166534; font-weight:950; }
+        .xai-tree-svg .tree-node rect { transition:fill .16s ease, stroke .16s ease, filter .16s ease; }
+        .xai-tree-svg .tree-node.other rect { fill:#FFFFFF; stroke:#CBD5E1; stroke-width:2.0; }
+        .xai-tree-svg .tree-node.selected rect { fill:#ECFDF5; stroke:#16A34A; stroke-width:4.0; }
+        .xai-tree-svg .tree-node.final rect { fill:#DCFCE7; stroke:#16A34A; stroke-width:4.8; }
+        .xai-tree-svg .tree-node:hover rect { fill:#EFF6FF; stroke:#2563EB; stroke-width:5.0; filter:drop-shadow(0 10px 18px rgba(37,99,235,0.20)); }
+        .xai-tree-svg .tree-node.selected:hover rect, .xai-tree-svg .tree-node.final:hover rect { fill:#DCFCE7; stroke:#15803D; filter:drop-shadow(0 10px 18px rgba(22,163,74,0.24)); }
+        .xai-tree-svg .node-title { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:34px; font-weight:950; fill:#0F172A; pointer-events:none; }
+        .xai-tree-svg .node-text { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:30px; font-weight:850; fill:#0F172A; pointer-events:none; }
+        .xai-tree-svg .tree-node.other .node-title, .xai-tree-svg .tree-node.other .node-text { fill:#334155; }
+        .xai-tree-svg .hover-card { opacity:0; pointer-events:none; transition:opacity .10s ease; }
+        .xai-tree-svg .tree-node:hover .hover-card, .xai-tree-svg .tree-node:focus .hover-card { opacity:1; }
+        .xai-tree-svg .hover-box { fill:#020617 !important; stroke:#020617 !important; stroke-width:2.5; filter:drop-shadow(0 22px 42px rgba(2,6,23,.62)); }
+        .xai-tree-svg .hover-text { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:34px; font-weight:950; fill:#FFFFFF !important; }
+        @media (max-width: 900px) {
+            .xai-tree-full-bleed { padding-left:10px; padding-right:10px; }
+            .xai-tree-shell { padding:16px 14px; }
+            .xai-tree-svg .node-title { font-size:28px; }
+            .xai-tree-svg .node-text { font-size:25px; }
+            .xai-tree-svg .hover-text { font-size:28px; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _svg_multiline_text(lines, x, y, cls, line_gap=22, anchor="middle") -> str:
+    parts = []
+    for i, line in enumerate(lines):
+        parts.append(f"<text class='{cls}' x='{x:.1f}' y='{y + i * line_gap:.1f}' text-anchor='{anchor}'>{_svg_escape(line)}</text>")
+    return "".join(parts)
+
+
+def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
+    """Pure HTML/CSS/SVG tree. It escapes the Streamlit content width without moving the rest of the page."""
+    tree_ = ctx["tree"]
+    path_set = set(int(n) for n in ctx.get("path_nodes", []))
+    leaf_id = int(ctx.get("leaf_id", -1))
+    positions, leaf_counter = _tree_layout_positions(tree_, 0)
+    n_leaves = max(1, leaf_counter[0])
+    max_depth = max([-y for _, y in positions.values()] + [1])
+
+    node_w = 310
+    node_h = 205
+    x_gap = 340 if n_leaves <= 16 else 312
+    y_gap = 270
+    margin_x = 100
+    margin_top = 78
+    margin_bottom = 98
+    svg_w = int(max(1320, (n_leaves - 1) * x_gap + 2 * margin_x + node_w))
+    svg_h = int(margin_top + max_depth * y_gap + margin_bottom + node_h)
+
+    def xy(node):
+        x, y = positions[int(node)]
+        return margin_x + x * x_gap + node_w / 2, margin_top + (-y) * y_gap + node_h / 2
+
+    edge_parts = []
+    label_parts = []
+    for node_id in sorted(positions.keys()):
+        left = int(tree_.children_left[node_id])
+        right = int(tree_.children_right[node_id])
+        if left != -1:
+            x0, y0 = xy(node_id)
+            for child in (left, right):
+                x1, y1 = xy(child)
+                selected_edge = int(node_id) in path_set and int(child) in path_set
+                cls = "edge selected" if selected_edge else "edge"
+                edge_parts.append(
+                    f"<line class='{cls}' x1='{x0:.1f}' y1='{y0 + node_h/2 - 10:.1f}' x2='{x1:.1f}' y2='{y1 - node_h/2 + 10:.1f}' />"
+                )
+                branch = _shorten_label(_xai_branch_label(ctx, node_id, child), 18)
+                mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+                label_cls = "branch-label selected" if selected_edge else "branch-label"
+                label_parts.append(
+                    f"<text class='{label_cls}' x='{mx:.1f}' y='{my:.1f}' text-anchor='middle'>{_svg_escape(branch)}</text>"
+                )
+
+    node_parts = []
+    for node_id in sorted(positions.keys()):
+        x, y = xy(node_id)
+        in_path = int(node_id) in path_set
+        is_leaf = int(node_id) == leaf_id
+        lines, hover_text = _interactive_tree_node_lines(ctx, payload, int(node_id))
+        if len(lines) > 5:
+            lines = lines[:5]
+        node_cls = "tree-node selected" if in_path else "tree-node other"
+        if is_leaf:
+            node_cls = "tree-node final"
+
+        rect_x = x - node_w / 2
+        rect_y = y - node_h / 2
+        text_start_y = y - 66
+        title_line = [lines[0]] if lines else [""]
+        body_lines = lines[1:]
+        body_lines = [_shorten_label(line, 27) for line in body_lines]
+        node_text = _svg_multiline_text(title_line, x, text_start_y, "node-title", line_gap=39)
+        node_text += _svg_multiline_text(body_lines, x, text_start_y + 42, "node-text", line_gap=36)
+
+        hover_lines = _svg_text_lines(hover_text, width=32, max_lines=7)
+        hover_w = 720
+        hover_h = 78 + len(hover_lines) * 44
+        hx = min(max(x + 32, 12), svg_w - hover_w - 12)
+        hy = max(14, rect_y - hover_h - 18)
+        hover_text_svg = _svg_multiline_text(hover_lines, hx + 32, hy + 58, "hover-text", line_gap=44, anchor="start")
+
+        node_parts.append(f"""
+        <g class='{node_cls}' tabindex='0'>
+            <rect x='{rect_x:.1f}' y='{rect_y:.1f}' width='{node_w}' height='{node_h}' rx='14' ry='14'></rect>
+            {node_text}
+            <g class='hover-card'>
+                <rect class='hover-box' x='{hx:.1f}' y='{hy:.1f}' width='{hover_w}' height='{hover_h}' rx='18' ry='18'></rect>
+                {hover_text_svg}
+            </g>
+        </g>
+        """)
+
+    return f"""
+    <div class='xai-tree-full-bleed'>
+        <div class='xai-tree-shell'>
+            <div class='xai-tree-title'>🌳 Complete Decision Tree</div>
+            <div class='xai-tree-subtitle'>
+                This is the full tree used for the visual explanation. The <b style='color:#16A34A;'>green boxes and green lines</b>
+                show the route followed from the first rule to the final recommendation above. Hover over any box to see a larger readable preview.
+            </div>
+            <div class='xai-tree-canvas-wrap'>
+                <svg class='xai-tree-svg' viewBox='0 0 {svg_w} {svg_h}' role='img' aria-label='Complete decision tree with selected path highlighted'>
+                    {''.join(edge_parts)}
+                    {''.join(label_parts)}
+                    {''.join(node_parts)}
+                </svg>
+            </div>
+            <div class='xai-tree-help'>
+                <b>How to read it:</b> Start at the top. At each question, follow the green line. The final green box is the same recommendation shown in the result card.
+            </div>
+        </div>
+    </div>
+    """
+
+
+def _render_full_tree_panel(ctx: dict, payload: dict):
+    # Render as normal HTML/SVG, not a Streamlit component iframe. This lets only the tree section become full-width.
+    _render_html(_build_full_bleed_svg_tree_markup(ctx, payload))
+
+
+def _render_visual_explanation(config: dict, payload: dict):
+    """Final visual explanation: centered SHAP/result text, full-width tree only."""
+    _inject_xai_dashboard_css()
+    st.markdown("<div class='xai-dashboard-title'>How the model made this recommendation</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='xai-dashboard-subtitle'>These visualizations explain the main factors that influenced the model's prediction. SHAP shows feature influence; the decision tree shows the route to the result.</div>",
+        unsafe_allow_html=True,
+    )
+
+    all_features = _top_features(payload)
+    if all_features:
+        with st.expander("See all factors ranked by TreeSHAP importance", expanded=False):
+            for i, feature in enumerate(all_features, start=1):
+                st.markdown(f"{i}. **{feature}**")
+
+    ctx = _get_tree_path_context(payload, config)
+    _render_readable_shap_card(payload, max_items=8)
+    if ctx is not None:
+        _render_full_tree_panel(ctx, payload)
+    else:
+        st.warning("Decision tree could not be displayed. Re-train the model bundle with surrogate_tree included.")
+
+
+def render_full_width_continue_button(return_url: str, label: str = "Continue to Survey"):
+    """Render the survey button as a full-browser-width section, matching the decision-tree width."""
+    _inject_xai_dashboard_css()
+    st.markdown("<div class='xai-tree-full-bleed'><div class='xai-continue-shell'>", unsafe_allow_html=True)
+    st.link_button(label, return_url, use_container_width=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
