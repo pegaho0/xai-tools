@@ -211,7 +211,7 @@ def hide_sidebar_nav():
                 padding: 14px 15px;
                 background: #FFFFFF;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-                min-height: 118px;
+                min-height: 150px;
             }
 
             .tree-node-title {
@@ -413,6 +413,35 @@ def hide_sidebar_nav():
             .inline-choice-label {
                 padding-top: 2px !important;
                 margin-bottom: 0 !important;
+            }
+
+
+
+            /* Stronger readable instructional text */
+            div[data-testid="stCaptionContainer"] p {
+                font-size: 16px !important;
+                font-weight: 650 !important;
+                color: #334155 !important;
+                line-height: 1.55 !important;
+            }
+            .mm-section-title {
+                font-size: 18px !important;
+                font-weight: 850 !important;
+                color: #0F172A !important;
+                margin-top: 28px !important;
+                margin-bottom: 8px !important;
+            }
+            .mm-section-subtitle {
+                font-size: 16px !important;
+                font-weight: 650 !important;
+                color: #334155 !important;
+                line-height: 1.55 !important;
+                max-width: 900px !important;
+            }
+            .mm-feature-label {
+                font-size: 15.5px !important;
+                font-weight: 700 !important;
+                color: #0F172A !important;
             }
 
         </style>
@@ -2061,41 +2090,192 @@ def _svg_text_lines(text: str, width: int = 20, max_lines: int = 4) -> list:
     return lines
 
 
-def _interactive_tree_node_lines(ctx: dict, payload: dict, node_id: int) -> tuple[list, str]:
-    """Return compact readable lines for an SVG tree node and a longer hover text."""
+
+def _xai_format_threshold(feature: str, value: float) -> str:
+    """Format numeric split values in a non-technical way."""
+    fl = str(feature).lower()
+    try:
+        v = float(value)
+    except Exception:
+        return str(value)
+    if "price" in fl or "budget" in fl:
+        return f"${v:,.2f}"
+    if "area" in fl or "size" in fl:
+        return f"{v:,.0f}"
+    if abs(v - round(v)) < 1e-9:
+        return f"{v:,.0f}"
+    return f"{v:,.2f}"
+
+
+def _xai_clean_question(ctx: dict, node_id: int) -> str:
+    """Readable full question used mainly in hover text."""
+    details = _xai_split_details(ctx, int(node_id))
+    if details.get("is_leaf"):
+        return "Final recommendation"
+    tree_ = ctx["tree"]
+    feature_idx = int(tree_.feature[int(node_id)])
+    feature = details.get("feature", "Feature")
+    feature_names = ctx.get("feature_names", [])
+    encoded_name = feature_names[feature_idx] if feature_idx < len(feature_names) else ""
+    threshold = float(tree_.threshold[int(node_id)])
+    feature_group_map = ctx.get("feature_group_map", {})
+    for prefix, label in feature_group_map.items():
+        if encoded_name.startswith(prefix + "_"):
+            category = encoded_name[len(prefix) + 1:].replace("_", " ")
+            return f"Is {label.lower()} '{category}'?"
+    return f"Is {str(feature).lower()} ≤ {_xai_format_threshold(feature, threshold)}?"
+
+
+def _xai_compact_question(ctx: dict, node_id: int) -> str:
+    """Very short node label. Full explanation stays in the hover card."""
+    details = _xai_split_details(ctx, int(node_id))
+    if details.get("is_leaf"):
+        return "Final output"
+
+    tree_ = ctx["tree"]
+    feature_idx = int(tree_.feature[int(node_id)])
+    feature = str(details.get("feature", "Feature")).strip()
+    feature_names = ctx.get("feature_names", [])
+    encoded_name = feature_names[feature_idx] if feature_idx < len(feature_names) else ""
+    threshold = float(tree_.threshold[int(node_id)])
+    feature_group_map = ctx.get("feature_group_map", {})
+
+    # One-hot split: show only the feature/category, not a long sentence.
+    for prefix, label in feature_group_map.items():
+        if encoded_name.startswith(prefix + "_"):
+            category = encoded_name[len(prefix) + 1:].replace("_", " ")
+            return f"{label}: {category}?"
+
+    # Numeric split: compact and readable.
+    return f"{feature} ≤ {_xai_format_threshold(feature, threshold)}?"
+
+
+def _xai_user_value_text(ctx: dict, node_id: int) -> str:
+    """Return the user's value for this node's feature, when available."""
+    details = _xai_split_details(ctx, int(node_id))
+    tree_ = ctx["tree"]
+    feature_idx = int(tree_.feature[int(node_id)])
+    if feature_idx < 0:
+        return "Final recommendation"
+    feature = details.get("feature", "Feature")
+    feature_names = ctx.get("feature_names", [])
+    encoded_name = feature_names[feature_idx] if feature_idx < len(feature_names) else ""
+    x_dense = np.asarray(ctx.get("x_dense", []), dtype=float)
+    raw_value = float(x_dense[0, feature_idx]) if x_dense.ndim == 2 and feature_idx < x_dense.shape[1] else None
+    feature_group_map = ctx.get("feature_group_map", {})
+    for prefix, label in feature_group_map.items():
+        if encoded_name.startswith(prefix + "_"):
+            category = encoded_name[len(prefix) + 1:].replace("_", " ")
+            answer = "Yes" if raw_value is not None and raw_value > 0.5 else "No"
+            return f"{label}: {answer} for '{category}'"
+    if raw_value is None:
+        return f"{feature}: not available"
+    return f"{feature}: {_xai_format_threshold(feature, raw_value)}"
+
+
+def _xai_selected_next_node(ctx: dict, node_id: int):
+    path = [int(n) for n in ctx.get("path_nodes", [])]
+    node_id = int(node_id)
+    if node_id not in path:
+        return None
+    idx = path.index(node_id)
+    return path[idx + 1] if idx + 1 < len(path) else None
+
+
+def _xai_result_word_for_node(ctx: dict, node_id: int) -> str:
+    """Return Yes/No for the selected branch at this node."""
+    next_node = _xai_selected_next_node(ctx, int(node_id))
+    if next_node is None:
+        return "Final"
+    label = str(_xai_branch_label(ctx, int(node_id), int(next_node))).strip().lower()
+    if label.startswith("yes"):
+        return "Yes"
+    if label.startswith("no"):
+        return "No"
+    return "Selected"
+
+
+def _xai_node_tooltip_text(ctx: dict, payload: dict, node_id: int) -> str:
+    """Plain-language, fixed-structure tooltip/panel text for ordinary users."""
+    node_id = int(node_id)
     details = _xai_split_details(ctx, node_id)
     stats = _xai_node_stats(ctx, node_id)
     path_set = set(int(n) for n in ctx.get("path_nodes", []))
-    in_path = int(node_id) in path_set
-    is_leaf = int(node_id) == int(ctx.get("leaf_id", -1))
-    display_pred = _xai_display_prediction(ctx, payload, int(node_id))
+    in_path = node_id in path_set
+    is_leaf = node_id == int(ctx.get("leaf_id", -1)) or details.get("is_leaf")
+    recommended_name = str(payload.get("recommended_name", payload.get("recommended_id", "selected option")))
+    question = _xai_clean_question(ctx, node_id)
+    user_value = _xai_user_value_text(ctx, node_id)
+    result_word = _xai_result_word_for_node(ctx, node_id)
+
+    if is_leaf and in_path:
+        return (
+            "Final recommendation\n\n"
+            f"Recommended option:\n{recommended_name}\n\n"
+            "Why it was selected:\nIt passed the previous rules on the green path.\n\n"
+            f"Similar past cases:\n{stats['samples']} similar cases followed this path.\n\n"
+            "Confidence note:\nThis recommendation is based on patterns in the training data, not a perfect rule."
+        )
+
+    if in_path:
+        passed = "passed this rule" if result_word == "Yes" else "followed this branch"
+        meaning = "the tree continued to the next rule on the green path."
+        return (
+            "Decision at this step\n\n"
+            f"The system checked:\n{question}\n\n"
+            f"User's answer:\n{user_value}\n\n"
+            f"Result:\n{result_word} — this option {passed}.\n\n"
+            f"What this means:\nBecause this answer matched the selected path, {meaning}"
+        )
+
+    return (
+        "Not selected\n\n"
+        "This option was not chosen because:\nIt did not follow the green decision path.\n\n"
+        f"Rule at this point:\n{question}\n\n"
+        "What happened:\nThe user's answers did not match this branch, so the tree ignored this option."
+    )
+
+
+def _interactive_tree_node_lines(ctx: dict, payload: dict, node_id: int) -> tuple[list, str]:
+    """Return compact node text plus a fuller hover/click explanation.
+
+    Keep the SVG box text intentionally short. The screenshot was unreadable
+    because each node tried to show the rule, result, next path, and sample count.
+    The box should be a summary; the hover card should carry the explanation.
+    """
+    node_id = int(node_id)
+    details = _xai_split_details(ctx, node_id)
+    stats = _xai_node_stats(ctx, node_id)
+    path_set = set(int(n) for n in ctx.get("path_nodes", []))
+    in_path = node_id in path_set
+    is_leaf = node_id == int(ctx.get("leaf_id", -1)) or details.get("is_leaf")
+    display_pred = str(_xai_display_prediction(ctx, payload, node_id)).replace("_", " ")
+    feature = str(details.get("feature", "Decision")).strip()
+    question = _xai_compact_question(ctx, node_id)
 
     if is_leaf:
-        title = "FINAL"
-    elif in_path:
-        title = "SELECTED"
-    else:
-        title = "OTHER"
+        title = "Recommended" if in_path else "Other option"
+        lines = [
+            title,
+            _shorten_label(display_pred, 23),
+            f"n = {stats['samples']}",
+        ]
+        return lines, _xai_node_tooltip_text(ctx, payload, node_id)
 
-    if details.get("is_leaf"):
-        main = f"Recommendation: {display_pred}" if in_path else f"{display_pred}"
-        lines = [title] + _svg_text_lines(main, width=19, max_lines=2) + [f"Similar cases: {stats['samples']}"]
-    else:
-        q_lines = _svg_text_lines(details.get("question", ""), width=21 if in_path else 18, max_lines=3 if in_path else 2)
-        pred_lines = _svg_text_lines(f"Likely: {display_pred}", width=20 if in_path else 18, max_lines=2 if in_path else 1)
-        lines = [title] + q_lines + pred_lines + [f"Similar cases: {stats['samples']}"]
-
-    hover_parts = []
-    hover_parts.append(title)
-    hover_parts.append(details.get("question", "Final node"))
-    hover_parts.append(f"Current likely recommendation: {display_pred}")
-    hover_parts.append(f"Similar training cases reaching this box: {stats['samples']}")
     if in_path:
-        hover_parts.append("This box is on the selected green path.")
+        lines = [
+            _shorten_label(feature, 22),
+            _shorten_label(question, 26),
+            f"n = {stats['samples']}",
+        ]
     else:
-        hover_parts.append("This box is another possible branch, not the selected path.")
-    return lines, "\n".join(hover_parts)
+        lines = [
+            "Other branch",
+            _shorten_label(question, 26),
+            f"n = {stats['samples']}",
+        ]
 
+    return lines, _xai_node_tooltip_text(ctx, payload, node_id)
 
 def _build_interactive_svg_tree_html(ctx: dict, payload: dict) -> tuple[str, int]:
     """Build a stable SVG tree with hover preview. The original node does not scale, so there is no shaking/flicker."""
@@ -2286,7 +2466,7 @@ def _inject_xai_dashboard_css():
             font-size: 30px; font-weight: 850; color:#0F172A; margin-top: 18px; margin-bottom: 4px;
         }
         .xai-dashboard-subtitle {
-            color:#64748B; font-size:15px; line-height:1.55; margin-bottom:18px;
+            color:#334155; font-size:17px; font-weight:650; line-height:1.6; margin-bottom:18px;
         }
         .xai-panel {
             border:1px solid #DDE3EA; border-radius:18px; padding:20px 22px; background:#FFFFFF;
@@ -2363,7 +2543,7 @@ def _inject_xai_dashboard_css():
             font-size: 30px; font-weight: 850; color:#0F172A; margin-top: 18px; margin-bottom: 4px;
         }
         .xai-dashboard-subtitle {
-            color:#64748B; font-size:15px; line-height:1.55; margin-bottom:18px;
+            color:#334155; font-size:17px; font-weight:650; line-height:1.6; margin-bottom:18px;
         }
         .xai-panel {
             border:1px solid #DDE3EA; border-radius:18px; padding:20px 22px; background:#FFFFFF;
@@ -2394,8 +2574,8 @@ def _inject_xai_dashboard_css():
             margin-left: -50vw;
             margin-right: -50vw;
             box-sizing: border-box;
-            padding-left: 22px;
-            padding-right: 22px;
+            padding-left: 8px;
+            padding-right: 8px;
             margin-top: 20px;
             margin-bottom: 18px;
         }
@@ -2426,7 +2606,8 @@ def _inject_xai_dashboard_css():
             justify-content: center !important;
         }
         .xai-tree-shell {
-            max-width: 1560px;
+            width: 100%;
+            max-width: none;
             margin: 0 auto;
             border: 1px solid #DDE3EA;
             border-radius: 18px;
@@ -2434,29 +2615,38 @@ def _inject_xai_dashboard_css():
             box-shadow: 0 10px 28px rgba(15,23,42,0.055);
             padding: 20px 22px 18px 22px;
         }
-        .xai-tree-title { font-size:24px; font-weight:900; color:#0F172A; margin-bottom:8px; }
-        .xai-tree-subtitle { color:#475569; font-size:15px; line-height:1.55; margin-bottom:14px; }
+        .xai-tree-title { font-size:26px; font-weight:950; color:#0F172A; margin-bottom:8px; }
+        .xai-tree-subtitle { color:#334155; font-size:16.5px; font-weight:650; line-height:1.6; margin-bottom:14px; }
         .xai-tree-canvas-wrap {
             border:1px solid #DDE7F2;
             border-radius:16px;
             background:#FFFFFF;
-            overflow:visible;
-            padding: 10px 8px;
+            overflow: visible;
+            padding: 12px 10px;
         }
-        .xai-tree-svg { display:block; width:100%; height:auto; overflow:visible; }
+        /* Fit the entire tree inside the full-width tree section.
+           No horizontal scrollbar: the SVG scales to the available browser width. */
+        .xai-tree-svg {
+            display:block;
+            width:100%;
+            max-width:100%;
+            height:auto;
+            overflow:visible;
+        }
         .xai-tree-help {
             border-left:4px solid #16A34A;
             background:#F0FDF4;
             padding:12px 14px;
             border-radius:12px;
             color:#14532D;
-            font-size:14px;
-            line-height:1.55;
+            font-size:15.5px;
+            font-weight:650;
+            line-height:1.6;
             margin-top:12px;
         }
         .xai-tree-svg .edge { stroke:#DCE6F0; stroke-width:2.2; stroke-linecap:round; }
         .xai-tree-svg .edge.selected { stroke:#16A34A; stroke-width:5.2; }
-        .xai-tree-svg .branch-label { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:26px; font-weight:950; fill:#64748B; }
+        .xai-tree-svg .branch-label { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:13px; font-weight:950; fill:#64748B; }
         .xai-tree-svg .branch-label.selected { fill:#166534; font-weight:950; }
         .xai-tree-svg .tree-node rect { transition:fill .16s ease, stroke .16s ease, filter .16s ease; }
         .xai-tree-svg .tree-node.other rect { fill:#FFFFFF; stroke:#CBD5E1; stroke-width:2.0; }
@@ -2464,13 +2654,14 @@ def _inject_xai_dashboard_css():
         .xai-tree-svg .tree-node.final rect { fill:#DCFCE7; stroke:#16A34A; stroke-width:4.8; }
         .xai-tree-svg .tree-node:hover rect { fill:#EFF6FF; stroke:#2563EB; stroke-width:5.0; filter:drop-shadow(0 10px 18px rgba(37,99,235,0.20)); }
         .xai-tree-svg .tree-node.selected:hover rect, .xai-tree-svg .tree-node.final:hover rect { fill:#DCFCE7; stroke:#15803D; filter:drop-shadow(0 10px 18px rgba(22,163,74,0.24)); }
-        .xai-tree-svg .node-title { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:34px; font-weight:950; fill:#0F172A; pointer-events:none; }
-        .xai-tree-svg .node-text { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:30px; font-weight:850; fill:#0F172A; pointer-events:none; }
+        .xai-tree-svg .node-title { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:15px; font-weight:950; fill:#0F172A; pointer-events:none; }
+        .xai-tree-svg .node-text { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:13px; font-weight:850; fill:#0F172A; pointer-events:none; }
         .xai-tree-svg .tree-node.other .node-title, .xai-tree-svg .tree-node.other .node-text { fill:#334155; }
         .xai-tree-svg .hover-card { opacity:0; pointer-events:none; transition:opacity .10s ease; }
         .xai-tree-svg .tree-node:hover .hover-card, .xai-tree-svg .tree-node:focus .hover-card { opacity:1; }
         .xai-tree-svg .hover-box { fill:#020617 !important; stroke:#020617 !important; stroke-width:2.5; filter:drop-shadow(0 22px 42px rgba(2,6,23,.62)); }
-        .xai-tree-svg .hover-text { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:34px; font-weight:950; fill:#FFFFFF !important; }
+        .xai-tree-svg .hover-text { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:18px; font-weight:800; fill:#FFFFFF !important; }
+        .xai-tree-svg .hover-heading { font-size:20px; font-weight:950; fill:#FFFFFF !important; }
         @media (max-width: 900px) {
             .xai-tree-full-bleed { padding-left:10px; padding-right:10px; }
             .xai-tree-shell { padding:16px 14px; }
@@ -2491,8 +2682,9 @@ def _svg_multiline_text(lines, x, y, cls, line_gap=22, anchor="middle") -> str:
     return "".join(parts)
 
 
+
 def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
-    """Pure HTML/CSS/SVG tree. It escapes the Streamlit content width without moving the rest of the page."""
+    """Pure HTML/CSS/SVG tree. Hover/click preview is rendered above all nodes, never behind them."""
     tree_ = ctx["tree"]
     path_set = set(int(n) for n in ctx.get("path_nodes", []))
     leaf_id = int(ctx.get("leaf_id", -1))
@@ -2500,14 +2692,15 @@ def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
     n_leaves = max(1, leaf_counter[0])
     max_depth = max([-y for _, y in positions.values()] + [1])
 
-    node_w = 310
-    node_h = 205
-    x_gap = 340 if n_leaves <= 16 else 312
-    y_gap = 270
-    margin_x = 100
-    margin_top = 78
-    margin_bottom = 98
-    svg_w = int(max(1320, (n_leaves - 1) * x_gap + 2 * margin_x + node_w))
+    # Compact dimensions: keeps the complete tree visible without horizontal scroll.
+    node_w = 260
+    node_h = 140
+    x_gap = 280 if n_leaves <= 16 else 260
+    y_gap = 210
+    margin_x = 70
+    margin_top = 76
+    margin_bottom = 96
+    svg_w = int(max(1280, (n_leaves - 1) * x_gap + 2 * margin_x + node_w))
     svg_h = int(margin_top + max_depth * y_gap + margin_bottom + node_h)
 
     def xy(node):
@@ -2536,43 +2729,90 @@ def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
                 )
 
     node_parts = []
+    hover_parts = []
+    hover_css_rules = []
     for node_id in sorted(positions.keys()):
         x, y = xy(node_id)
         in_path = int(node_id) in path_set
         is_leaf = int(node_id) == leaf_id
         lines, hover_text = _interactive_tree_node_lines(ctx, payload, int(node_id))
-        if len(lines) > 5:
-            lines = lines[:5]
-        node_cls = "tree-node selected" if in_path else "tree-node other"
+        lines = lines[:3]
+        node_cls = f"tree-node node-{int(node_id)} selected" if in_path else f"tree-node node-{int(node_id)} other"
         if is_leaf:
-            node_cls = "tree-node final"
+            node_cls = f"tree-node node-{int(node_id)} final"
 
         rect_x = x - node_w / 2
         rect_y = y - node_h / 2
-        text_start_y = y - 66
-        title_line = [lines[0]] if lines else [""]
-        body_lines = lines[1:]
-        body_lines = [_shorten_label(line, 27) for line in body_lines]
-        node_text = _svg_multiline_text(title_line, x, text_start_y, "node-title", line_gap=39)
-        node_text += _svg_multiline_text(body_lines, x, text_start_y + 42, "node-text", line_gap=36)
+        # Keep the full node label inside the rectangle. Do not shorten with ellipsis;
+        # wrap into several compact lines instead.
+        title_lines = _svg_text_lines(lines[0] if lines else "", width=22, max_lines=2)
+        body_lines = []
+        for line in lines[1:]:
+            body_lines.extend(_svg_text_lines(line, width=27, max_lines=2))
+        body_lines = body_lines[:4]
 
-        hover_lines = _svg_text_lines(hover_text, width=32, max_lines=7)
-        hover_w = 720
-        hover_h = 78 + len(hover_lines) * 44
-        hx = min(max(x + 32, 12), svg_w - hover_w - 12)
-        hy = max(14, rect_y - hover_h - 18)
-        hover_text_svg = _svg_multiline_text(hover_lines, hx + 32, hy + 58, "hover-text", line_gap=44, anchor="start")
+        total_lines = len(title_lines) + len(body_lines)
+        line_gap = 19
+        text_start_y = y - ((total_lines - 1) * line_gap) / 2
+        node_text = _svg_multiline_text(title_lines, x, text_start_y, "node-title", line_gap=line_gap)
+        node_text += _svg_multiline_text(body_lines, x, text_start_y + len(title_lines) * line_gap, "node-text", line_gap=line_gap)
 
         node_parts.append(f"""
         <g class='{node_cls}' tabindex='0'>
-            <rect x='{rect_x:.1f}' y='{rect_y:.1f}' width='{node_w}' height='{node_h}' rx='14' ry='14'></rect>
+            <rect x='{rect_x:.1f}' y='{rect_y:.1f}' width='{node_w}' height='{node_h}' rx='16' ry='16'></rect>
             {node_text}
-            <g class='hover-card'>
-                <rect class='hover-box' x='{hx:.1f}' y='{hy:.1f}' width='{hover_w}' height='{hover_h}' rx='18' ry='18'></rect>
-                {hover_text_svg}
-            </g>
         </g>
         """)
+
+        # Tooltip/preview card is drawn in a separate top layer after all nodes, so it cannot go behind nodes.
+        hover_lines = []
+        for block in str(hover_text).split("\n"):
+            if block.strip() == "":
+                hover_lines.append("")
+            else:
+                hover_lines.extend(_svg_text_lines(block, width=42, max_lines=3))
+        hover_lines = hover_lines[:16]
+        hover_w = 520
+        hover_h = 58 + len(hover_lines) * 24
+        # Prefer showing the card above/right of the node, but keep it inside the SVG viewBox.
+        hx = x + 28
+        if hx + hover_w > svg_w - 16:
+            hx = x - hover_w - 28
+        hx = min(max(hx, 16), svg_w - hover_w - 16)
+        hy = rect_y - hover_h - 24
+        if hy < 16:
+            hy = rect_y + node_h + 24
+        hy = min(max(hy, 16), svg_h - hover_h - 16)
+
+        text_parts = []
+        yy = hy + 38
+        for line in hover_lines:
+            if line == "":
+                yy += 12
+                continue
+            # First line and section labels are stronger.
+            lower = line.lower().strip().rstrip(":")
+            cls = "hover-text hover-heading" if lower in {
+                "decision at this step", "final recommendation", "not selected", "the system checked",
+                "user's answer", "result", "what this means", "recommended option", "why it was selected",
+                "similar past cases", "confidence note", "rule at this point", "what happened",
+                "this option was not chosen because"
+            } else "hover-text"
+            text_parts.append(f"<text class='{cls}' x='{hx + 34:.1f}' y='{yy:.1f}' text-anchor='start'>{_svg_escape(line)}</text>")
+            yy += 24
+
+        hover_parts.append(f"""
+        <g class='hover-card hover-for-{int(node_id)}'>
+            <rect class='hover-box' x='{hx:.1f}' y='{hy:.1f}' width='{hover_w}' height='{hover_h}' rx='20' ry='20'></rect>
+            {''.join(text_parts)}
+        </g>
+        """)
+        hover_css_rules.append(
+            f".xai-tree-svg:has(.node-{int(node_id)}:hover) .hover-for-{int(node_id)}, "
+            f".xai-tree-svg:has(.node-{int(node_id)}:focus) .hover-for-{int(node_id)} {{ opacity:1; }}"
+        )
+
+    dynamic_hover_css = "\n".join(hover_css_rules)
 
     return f"""
     <div class='xai-tree-full-bleed'>
@@ -2580,13 +2820,14 @@ def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
             <div class='xai-tree-title'>🌳 Complete Decision Tree</div>
             <div class='xai-tree-subtitle'>
                 This is the full tree used for the visual explanation. The <b style='color:#16A34A;'>green boxes and green lines</b>
-                show the route followed from the first rule to the final recommendation above. Hover over any box to see a larger readable preview.
+                show the route followed from the first rule to the final recommendation above. Hover or click any box to see a larger readable explanation.
             </div>
             <div class='xai-tree-canvas-wrap'>
-                <svg class='xai-tree-svg' viewBox='0 0 {svg_w} {svg_h}' role='img' aria-label='Complete decision tree with selected path highlighted'>
-                    {''.join(edge_parts)}
-                    {''.join(label_parts)}
-                    {''.join(node_parts)}
+                <svg class='xai-tree-svg' width='{svg_w}' height='{svg_h}' viewBox='0 0 {svg_w} {svg_h}' role='img' aria-label='Complete decision tree with selected path highlighted'>
+                    <g class='edge-layer'>{''.join(edge_parts)}</g>
+                    <g class='branch-layer'>{''.join(label_parts)}</g>
+                    <g class='node-layer'>{''.join(node_parts)}</g>
+                    <g class='hover-layer'>{''.join(hover_parts)}</g>
                 </svg>
             </div>
             <div class='xai-tree-help'>
@@ -2594,8 +2835,8 @@ def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
             </div>
         </div>
     </div>
+    <style>{dynamic_hover_css}</style>
     """
-
 
 def _render_full_tree_panel(ctx: dict, payload: dict):
     # Render as normal HTML/SVG, not a Streamlit component iframe. This lets only the tree section become full-width.
