@@ -2844,11 +2844,11 @@ def _render_full_tree_panel(ctx: dict, payload: dict):
 
 
 def _render_visual_explanation(config: dict, payload: dict):
-    """Final visual explanation: centered SHAP/result text, full-width tree only."""
+    """Final visual explanation: decision tree first, then SHAP summary."""
     _inject_xai_dashboard_css()
     st.markdown("<div class='xai-dashboard-title'>How the model made this recommendation</div>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='xai-dashboard-subtitle'>These visualizations explain the main factors that influenced the model's prediction. SHAP shows feature influence; the decision tree shows the route to the result.</div>",
+        "<div class='xai-dashboard-subtitle'>First, the decision tree shows the route followed to reach the recommendation. Then, SHAP shows which input factors had the strongest influence.</div>",
         unsafe_allow_html=True,
     )
 
@@ -2859,11 +2859,15 @@ def _render_visual_explanation(config: dict, payload: dict):
                 st.markdown(f"{i}. **{feature}**")
 
     ctx = _get_tree_path_context(payload, config)
-    _render_readable_shap_card(payload, max_items=8)
+
+    # 1) Decision tree first
     if ctx is not None:
         _render_full_tree_panel(ctx, payload)
     else:
         st.warning("Decision tree could not be displayed. Re-train the model bundle with surrogate_tree included.")
+
+    # 2) SHAP summary after the tree
+    _render_readable_shap_card(payload, max_items=8)
 
 
 def render_full_width_continue_button(return_url: str, label: str = "Continue to Survey"):
