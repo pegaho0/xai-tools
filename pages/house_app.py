@@ -41,8 +41,8 @@ result_ready_key, result_payload_key, mm_rating_key = init_result_state("house")
 st.title("🏠 House Recommendation")
 st.caption(f"{'Visual Explanation' if route['group'] == 'visual' else 'Text Explanation'} • Step {route['step']} of 3")
 st.caption(
-    "Provide your housing preferences, rate how important you think each factor is to the AI, "
-    "get a recommendation, and continue to the survey."
+    "Provide your housing preferences, receive a recommendation, review how the AI made its decision, "
+    "answer a few related questions, and continue to the final survey."
 )
 
 budget_text, budget = render_cad_text_input(

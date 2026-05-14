@@ -44,8 +44,8 @@ st.caption(
     f"Step {route['step']} of 3"
 )
 st.caption(
-    "Provide your travel preferences, rate how important you think each factor is to the AI, "
-    "then get a tour recommendation."
+    "Provide your travel preferences, receive a recommendation, review how the AI made its decision, "
+    "answer a few related questions, and continue to the final survey."
 )
 
 budget_text, budget = render_cad_text_input(

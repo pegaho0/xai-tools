@@ -1630,12 +1630,6 @@ def _render_visual_explanation(config: dict, payload: dict):
         "All input features are included in the ranking."
     )
 
-    all_features = _top_features(payload)
-    if all_features:
-        with st.expander("See all factors ranked by TreeSHAP importance", expanded=False):
-            for i, feature in enumerate(all_features, start=1):
-                st.markdown(f"{i}. **{feature}**")
-
     # Use a native Streamlit bordered container instead of raw HTML <div>.
     # The previous HTML card created an empty blank section because Streamlit
     # elements do not reliably stay inside manually opened/closed HTML divs.
@@ -2078,10 +2072,21 @@ def _svg_escape(value) -> str:
     return html.escape("" if value is None else str(value), quote=True)
 
 
-def _svg_text_lines(text: str, width: int = 20, max_lines: int = 4) -> list:
+def _svg_text_lines(
+    text: str,
+    width: int = 20,
+    max_lines: int = 4,
+    *,
+    break_long_words: bool = False,
+) -> list:
     import textwrap as _tw
     clean = str(text).replace("_", " ").strip()
-    lines = _tw.wrap(clean, width=width, break_long_words=False, break_on_hyphens=False)
+    lines = _tw.wrap(
+        clean,
+        width=width,
+        break_long_words=break_long_words,
+        break_on_hyphens=False,
+    )
     if not lines:
         return [""]
     if len(lines) > max_lines:
@@ -2210,10 +2215,10 @@ def _xai_node_tooltip_text(ctx: dict, payload: dict, node_id: int) -> str:
 
     if is_leaf and in_path:
         return (
-            "Final recommendation\n\n"
-            f"Recommended option:\n{recommended_name}\n\n"
-            "Why it was selected:\nIt passed the previous rules on the green path.\n\n"
-            f"Similar past cases:\n{stats['samples']} similar cases followed this path.\n\n"
+            "Final recommendation\n"
+            f"Recommended option:\n{recommended_name}\n"
+            "Why it was selected:\nIt passed the previous rules on the green path.\n"
+            f"Similar past cases:\n{stats['samples']} similar cases followed this path.\n"
             "Confidence note:\nThis recommendation is based on patterns in the training data, not a perfect rule."
         )
 
@@ -2221,17 +2226,17 @@ def _xai_node_tooltip_text(ctx: dict, payload: dict, node_id: int) -> str:
         passed = "passed this rule" if result_word == "Yes" else "followed this branch"
         meaning = "the tree continued to the next rule on the green path."
         return (
-            "Decision at this step\n\n"
-            f"The system checked:\n{question}\n\n"
-            f"User's answer:\n{user_value}\n\n"
-            f"Result:\n{result_word} — this option {passed}.\n\n"
+            "Decision at this step\n"
+            f"The system checked:\n{question}\n"
+            f"User's answer:\n{user_value}\n"
+            f"Result:\n{result_word}. This option {passed}.\n"
             f"What this means:\nBecause this answer matched the selected path, {meaning}"
         )
 
     return (
-        "Not selected\n\n"
-        "This option was not chosen because:\nIt did not follow the green decision path.\n\n"
-        f"Rule at this point:\n{question}\n\n"
+        "Not selected\n"
+        "This option was not chosen because:\nIt did not follow the green decision path.\n"
+        f"Rule at this point:\n{question}\n"
         "What happened:\nThe user's answers did not match this branch, so the tree ignored this option."
     )
 
@@ -2513,12 +2518,6 @@ def _render_visual_explanation(config: dict, payload: dict):
         unsafe_allow_html=True,
     )
 
-    all_features = _top_features(payload)
-    if all_features:
-        with st.expander("See all factors ranked by TreeSHAP importance", expanded=False):
-            for i, feature in enumerate(all_features, start=1):
-                st.markdown(f"{i}. **{feature}**")
-
     ctx = _get_tree_path_context(payload, config)
 
     # SHAP first, then the complete decision tree full-width.
@@ -2644,30 +2643,57 @@ def _inject_xai_dashboard_css():
             line-height:1.6;
             margin-top:12px;
         }
-        .xai-tree-svg .edge { stroke:#DCE6F0; stroke-width:2.2; stroke-linecap:round; }
-        .xai-tree-svg .edge.selected { stroke:#16A34A; stroke-width:5.2; }
-        .xai-tree-svg .branch-label { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:13px; font-weight:950; fill:#64748B; }
+        /* Unitless font-size / stroke-width = SVG user units, so text and lines scale with the diagram
+           (px values stayed screen-sized while boxes grew in user space, which looked like huge padding + tiny type). */
+        .xai-tree-svg .edge { stroke:#94A3B8; stroke-width:4.2; stroke-linecap:round; }
+        .xai-tree-svg .edge.selected { stroke:#16A34A; stroke-width:7.0; }
+        .xai-tree-svg .branch-label { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:21; font-weight:950; fill:#475569; }
         .xai-tree-svg .branch-label.selected { fill:#166534; font-weight:950; }
         .xai-tree-svg .tree-node rect { transition:fill .16s ease, stroke .16s ease, filter .16s ease; }
-        .xai-tree-svg .tree-node.other rect { fill:#FFFFFF; stroke:#CBD5E1; stroke-width:2.0; }
-        .xai-tree-svg .tree-node.selected rect { fill:#ECFDF5; stroke:#16A34A; stroke-width:4.0; }
-        .xai-tree-svg .tree-node.final rect { fill:#DCFCE7; stroke:#16A34A; stroke-width:4.8; }
-        .xai-tree-svg .tree-node:hover rect { fill:#EFF6FF; stroke:#2563EB; stroke-width:5.0; filter:drop-shadow(0 10px 18px rgba(37,99,235,0.20)); }
+        .xai-tree-svg .tree-node.other rect { fill:#FFFFFF; stroke:#94A3B8; stroke-width:2.8; }
+        .xai-tree-svg .tree-node.selected rect { fill:#ECFDF5; stroke:#16A34A; stroke-width:4.6; }
+        .xai-tree-svg .tree-node.final rect { fill:#DCFCE7; stroke:#16A34A; stroke-width:5.0; }
+        .xai-tree-svg .tree-node:hover rect { fill:#EFF6FF; stroke:#2563EB; stroke-width:5.4; filter:drop-shadow(0 10px 18px rgba(37,99,235,0.20)); }
         .xai-tree-svg .tree-node.selected:hover rect, .xai-tree-svg .tree-node.final:hover rect { fill:#DCFCE7; stroke:#15803D; filter:drop-shadow(0 10px 18px rgba(22,163,74,0.24)); }
-        .xai-tree-svg .node-title { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:15px; font-weight:950; fill:#0F172A; pointer-events:none; }
-        .xai-tree-svg .node-text { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:13px; font-weight:850; fill:#0F172A; pointer-events:none; }
+        .xai-tree-svg .node-title { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:26; font-weight:950; fill:#0F172A; pointer-events:none; }
+        .xai-tree-svg .node-text { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:21; font-weight:800; fill:#0F172A; pointer-events:none; }
         .xai-tree-svg .tree-node.other .node-title, .xai-tree-svg .tree-node.other .node-text { fill:#334155; }
-        .xai-tree-svg .hover-card { opacity:0; pointer-events:none; transition:opacity .10s ease; }
+        .xai-tree-svg .hover-card { opacity:0; pointer-events:none; transition:opacity .14s ease; }
         .xai-tree-svg .tree-node:hover .hover-card, .xai-tree-svg .tree-node:focus .hover-card { opacity:1; }
-        .xai-tree-svg .hover-box { fill:#020617 !important; stroke:#020617 !important; stroke-width:2.5; filter:drop-shadow(0 22px 42px rgba(2,6,23,.62)); }
-        .xai-tree-svg .hover-text { font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size:18px; font-weight:800; fill:#FFFFFF !important; }
-        .xai-tree-svg .hover-heading { font-size:20px; font-weight:950; fill:#FFFFFF !important; }
+        /* Tooltip panel: IDE-style dark card (cf. "New Branch"), scales with SVG user units */
+        .xai-tree-svg .hover-box {
+            fill:#3F3F46 !important;
+            stroke:#52525B !important;
+            stroke-width:2.2;
+            filter:drop-shadow(0 12px 32px rgba(0,0,0,0.38));
+        }
+        .xai-tree-svg .hover-title {
+            font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size:38;
+            font-weight:950;
+            fill:#FAFAFA !important;
+            letter-spacing:0.01em;
+        }
+        .xai-tree-svg .hover-section {
+            font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size:32;
+            font-weight:850;
+            fill:#F4F4F5 !important;
+        }
+        .xai-tree-svg .hover-body {
+            font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size:31;
+            font-weight:650;
+            fill:#D4D4D8 !important;
+        }
         @media (max-width: 900px) {
             .xai-tree-full-bleed { padding-left:10px; padding-right:10px; }
             .xai-tree-shell { padding:16px 14px; }
-            .xai-tree-svg .node-title { font-size:28px; }
-            .xai-tree-svg .node-text { font-size:25px; }
-            .xai-tree-svg .hover-text { font-size:28px; }
+            .xai-tree-svg .node-title { font-size:29; }
+            .xai-tree-svg .node-text { font-size:23; }
+            .xai-tree-svg .hover-title { font-size:40; }
+            .xai-tree-svg .hover-section { font-size:34; }
+            .xai-tree-svg .hover-body { font-size:33; }
         }
         </style>
         """,
@@ -2675,10 +2701,22 @@ def _inject_xai_dashboard_css():
     )
 
 
-def _svg_multiline_text(lines, x, y, cls, line_gap=22, anchor="middle") -> str:
+def _svg_multiline_text(
+    lines,
+    x,
+    y,
+    cls,
+    line_gap=22,
+    anchor="middle",
+    font_size: float | None = None,
+) -> str:
+    """Emit SVG <text> lines. Optional font_size sets a presentation attribute (user units) so sizing survives Streamlit/CSS quirks."""
     parts = []
+    fs_attr = f' font-size="{font_size}"' if font_size is not None else ""
     for i, line in enumerate(lines):
-        parts.append(f"<text class='{cls}' x='{x:.1f}' y='{y + i * line_gap:.1f}' text-anchor='{anchor}'>{_svg_escape(line)}</text>")
+        parts.append(
+            f"<text class='{cls}'{fs_attr} x='{x:.1f}' y='{y + i * line_gap:.1f}' text-anchor='{anchor}'>{_svg_escape(line)}</text>"
+        )
     return "".join(parts)
 
 
@@ -2692,14 +2730,14 @@ def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
     n_leaves = max(1, leaf_counter[0])
     max_depth = max([-y for _, y in positions.values()] + [1])
 
-    # Compact dimensions: keeps the complete tree visible without horizontal scroll.
-    node_w = 260
-    node_h = 140
-    x_gap = 280 if n_leaves <= 16 else 260
-    y_gap = 210
-    margin_x = 70
-    margin_top = 76
-    margin_bottom = 96
+    # Uniform node box tall enough for wrapped labels; long tokens break so text stays inside (clip backup).
+    node_w = 272
+    node_h = 138
+    x_gap = 268 if n_leaves <= 16 else 248
+    y_gap = 204
+    margin_x = 52
+    margin_top = 64
+    margin_bottom = 80
     svg_w = int(max(1280, (n_leaves - 1) * x_gap + 2 * margin_x + node_w))
     svg_h = int(margin_top + max_depth * y_gap + margin_bottom + node_h)
 
@@ -2719,17 +2757,19 @@ def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
                 selected_edge = int(node_id) in path_set and int(child) in path_set
                 cls = "edge selected" if selected_edge else "edge"
                 edge_parts.append(
-                    f"<line class='{cls}' x1='{x0:.1f}' y1='{y0 + node_h/2 - 10:.1f}' x2='{x1:.1f}' y2='{y1 - node_h/2 + 10:.1f}' />"
+                    f"<line class='{cls}' x1='{x0:.1f}' y1='{y0 + node_h/2 - 8:.1f}' x2='{x1:.1f}' y2='{y1 - node_h/2 + 8:.1f}' />"
                 )
                 branch = _shorten_label(_xai_branch_label(ctx, node_id, child), 18)
                 mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
                 label_cls = "branch-label selected" if selected_edge else "branch-label"
                 label_parts.append(
-                    f"<text class='{label_cls}' x='{mx:.1f}' y='{my:.1f}' text-anchor='middle'>{_svg_escape(branch)}</text>"
+                    f"<text class='{label_cls}' font-size='21' x='{mx:.1f}' y='{my:.1f}' text-anchor='middle'>{_svg_escape(branch)}</text>"
                 )
 
     node_parts = []
+    node_clip_defs = []
     hover_parts = []
+    hover_clip_defs = []
     hover_css_rules = []
     for node_id in sorted(positions.keys()):
         x, y = xy(node_id)
@@ -2743,37 +2783,101 @@ def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
 
         rect_x = x - node_w / 2
         rect_y = y - node_h / 2
-        # Keep the full node label inside the rectangle. Do not shorten with ellipsis;
-        # wrap into several compact lines instead.
-        title_lines = _svg_text_lines(lines[0] if lines else "", width=22, max_lines=2)
-        body_lines = []
+        node_fs_title = 26.0
+        node_fs_body = 21.0
+        # Narrow wrap + break long tokens so labels never spill past the cube horizontally.
+        title_lines = _svg_text_lines(
+            lines[0] if lines else "", width=16, max_lines=3, break_long_words=True
+        )
+        body_lines: list[str] = []
         for line in lines[1:]:
-            body_lines.extend(_svg_text_lines(line, width=27, max_lines=2))
-        body_lines = body_lines[:4]
+            body_lines.extend(
+                _svg_text_lines(line, width=18, max_lines=4, break_long_words=True)
+            )
+        body_lines = body_lines[:6]
 
         total_lines = len(title_lines) + len(body_lines)
-        line_gap = 19
-        text_start_y = y - ((total_lines - 1) * line_gap) / 2
-        node_text = _svg_multiline_text(title_lines, x, text_start_y, "node-title", line_gap=line_gap)
-        node_text += _svg_multiline_text(body_lines, x, text_start_y + len(title_lines) * line_gap, "node-text", line_gap=line_gap)
+        line_gap = 21.0
+        # Slight upward nudge: baseline-centered block was sitting low and clipped the last line.
+        text_start_y = y - ((total_lines - 1) * line_gap) / 2.0 - (0.32 * node_fs_body)
+        node_text = _svg_multiline_text(
+            title_lines,
+            x,
+            text_start_y,
+            "node-title",
+            line_gap=line_gap,
+            font_size=node_fs_title,
+        )
+        node_text += _svg_multiline_text(
+            body_lines,
+            x,
+            text_start_y + len(title_lines) * line_gap,
+            "node-text",
+            line_gap=line_gap,
+            font_size=node_fs_body,
+        )
+
+        node_clip_defs.append(
+            f'<clipPath id="nclip-{int(node_id)}">'
+            f'<rect x="{rect_x:.1f}" y="{rect_y:.1f}" width="{node_w}" height="{node_h}" rx="11" ry="11"/>'
+            f"</clipPath>"
+        )
 
         node_parts.append(f"""
         <g class='{node_cls}' tabindex='0'>
-            <rect x='{rect_x:.1f}' y='{rect_y:.1f}' width='{node_w}' height='{node_h}' rx='16' ry='16'></rect>
+            <rect x='{rect_x:.1f}' y='{rect_y:.1f}' width='{node_w}' height='{node_h}' rx='11' ry='11'></rect>
+            <g clip-path="url(#nclip-{int(node_id)})">
             {node_text}
+            </g>
         </g>
         """)
 
-        # Tooltip/preview card is drawn in a separate top layer after all nodes, so it cannot go behind nodes.
-        hover_lines = []
+        # Hover: no blank "separator" lines (skip empty paragraphs), tight wrap so lines stay inside the card,
+        # clip-path on text so nothing paints outside the rounded rect. Font sizes +2 vs previous.
+        hover_wrap = 25
+        hover_lines: list[str] = []
         for block in str(hover_text).split("\n"):
-            if block.strip() == "":
-                hover_lines.append("")
-            else:
-                hover_lines.extend(_svg_text_lines(block, width=42, max_lines=3))
-        hover_lines = hover_lines[:16]
-        hover_w = 520
-        hover_h = 58 + len(hover_lines) * 24
+            b = block.strip()
+            if not b:
+                continue
+            hover_lines.extend(_svg_text_lines(b, width=hover_wrap, max_lines=14))
+        hover_lines = hover_lines[:32]
+
+        hover_section_headers = frozenset({
+            "decision at this step", "final recommendation", "not selected", "the system checked",
+            "user's answer", "result", "what this means", "recommended option", "why it was selected",
+            "similar past cases", "confidence note", "rule at this point", "what happened",
+            "this option was not chosen because",
+        })
+
+        # Larger type + line leading ≈ font so the card fills vertically; modest bottom pad to avoid a big empty band.
+        hover_pad_top = 46
+        hover_pad_bottom = 16
+        hover_after_title = 42
+        hover_after_section = 36
+        hover_after_body = 35
+        hover_fs_title = 38.0
+        hover_fs_section = 32.0
+        hover_fs_body = 31.0
+
+        def _hover_panel_height(lines: list) -> int:
+            yy = hover_pad_top
+            seen_title = False
+            for line in lines:
+                if not line.strip():
+                    continue
+                lower = line.lower().strip().rstrip(":")
+                if not seen_title:
+                    seen_title = True
+                    yy += hover_after_title
+                elif lower in hover_section_headers:
+                    yy += hover_after_section
+                else:
+                    yy += hover_after_body
+            return int(yy + hover_pad_bottom)
+
+        hover_w = 600
+        hover_h = _hover_panel_height(hover_lines)
         # Prefer showing the card above/right of the node, but keep it inside the SVG viewBox.
         hx = x + 28
         if hx + hover_w > svg_w - 16:
@@ -2784,27 +2888,46 @@ def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
             hy = rect_y + node_h + 24
         hy = min(max(hy, 16), svg_h - hover_h - 16)
 
+        pad_x = 18
+        clip_inset = 5.0
+        hover_clip_defs.append(
+            f'<clipPath id="hhover-{int(node_id)}">'
+            f'<rect x="{hx + clip_inset:.1f}" y="{hy + clip_inset:.1f}" '
+            f'width="{hover_w - 2 * clip_inset:.1f}" height="{hover_h - 2 * clip_inset:.1f}" rx="9" ry="9"/>'
+            f"</clipPath>"
+        )
+
         text_parts = []
-        yy = hy + 38
+        yy = hy + hover_pad_top
+        seen_title = False
         for line in hover_lines:
-            if line == "":
-                yy += 12
+            if not line.strip():
                 continue
-            # First line and section labels are stronger.
             lower = line.lower().strip().rstrip(":")
-            cls = "hover-text hover-heading" if lower in {
-                "decision at this step", "final recommendation", "not selected", "the system checked",
-                "user's answer", "result", "what this means", "recommended option", "why it was selected",
-                "similar past cases", "confidence note", "rule at this point", "what happened",
-                "this option was not chosen because"
-            } else "hover-text"
-            text_parts.append(f"<text class='{cls}' x='{hx + 34:.1f}' y='{yy:.1f}' text-anchor='start'>{_svg_escape(line)}</text>")
-            yy += 24
+            if not seen_title:
+                cls = "hover-title"
+                fs = hover_fs_title
+                seen_title = True
+                yy_step = hover_after_title
+            elif lower in hover_section_headers:
+                cls = "hover-section"
+                fs = hover_fs_section
+                yy_step = hover_after_section
+            else:
+                cls = "hover-body"
+                fs = hover_fs_body
+                yy_step = hover_after_body
+            text_parts.append(
+                f"<text class='{cls}' font-size='{fs}' x='{hx + pad_x:.1f}' y='{yy:.1f}' text-anchor='start'>{_svg_escape(line)}</text>"
+            )
+            yy += yy_step
 
         hover_parts.append(f"""
         <g class='hover-card hover-for-{int(node_id)}'>
-            <rect class='hover-box' x='{hx:.1f}' y='{hy:.1f}' width='{hover_w}' height='{hover_h}' rx='20' ry='20'></rect>
+            <rect class='hover-box' x='{hx:.1f}' y='{hy:.1f}' width='{hover_w}' height='{hover_h}' rx='12' ry='12'></rect>
+            <g clip-path="url(#hhover-{int(node_id)})">
             {''.join(text_parts)}
+            </g>
         </g>
         """)
         hover_css_rules.append(
@@ -2824,6 +2947,7 @@ def _build_full_bleed_svg_tree_markup(ctx: dict, payload: dict) -> str:
             </div>
             <div class='xai-tree-canvas-wrap'>
                 <svg class='xai-tree-svg' width='{svg_w}' height='{svg_h}' viewBox='0 0 {svg_w} {svg_h}' role='img' aria-label='Complete decision tree with selected path highlighted'>
+                    <defs>{''.join(node_clip_defs)}{''.join(hover_clip_defs)}</defs>
                     <g class='edge-layer'>{''.join(edge_parts)}</g>
                     <g class='branch-layer'>{''.join(label_parts)}</g>
                     <g class='node-layer'>{''.join(node_parts)}</g>
@@ -2848,15 +2972,9 @@ def _render_visual_explanation(config: dict, payload: dict):
     _inject_xai_dashboard_css()
     st.markdown("<div class='xai-dashboard-title'>How the model made this recommendation</div>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='xai-dashboard-subtitle'>First, the decision tree shows the route followed to reach the recommendation. Then, SHAP shows which input factors had the strongest influence.</div>",
+        "<div class='xai-dashboard-subtitle'>First, review the decision tree showing how the recommendation was generated. Then, examine the SHAP explanation highlighting the most influential input factors. You will answer questions related to these explanations in the next section.</div>",
         unsafe_allow_html=True,
     )
-
-    all_features = _top_features(payload)
-    if all_features:
-        with st.expander("See all factors ranked by TreeSHAP importance", expanded=False):
-            for i, feature in enumerate(all_features, start=1):
-                st.markdown(f"{i}. **{feature}**")
 
     ctx = _get_tree_path_context(payload, config)
 
