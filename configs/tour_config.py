@@ -68,12 +68,17 @@ def text_reason_builder(payload: dict) -> list[str]:
         "Rating importance": f"Your stated importance of ratings (**{inputs['rating_importance']}**) influenced how the model weighed tour quality.",
     }
 
-    reasons = [templates[f] for f in top if f in templates]
+    reasons = []
+    for rank, f in enumerate(order, start=1):
+        if f in templates:
+            reasons.append(f"**{rank}.** {templates[f]}")
+        else:
+            reasons.append(f"**{rank}.** The factor **{f}** contributed to the model's recommendation.")
 
     if not reasons:
-        reasons.append("This tour was the strongest overall match for your stated travel preferences.")
+        reasons.append("**1.** This tour was the strongest overall match for your stated travel preferences.")
 
-    return reasons[:6]
+    return reasons
 
 
 TOUR_CONFIG = {

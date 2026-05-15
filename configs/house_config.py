@@ -88,12 +88,17 @@ def text_reason_builder(payload: dict) -> list[str]:
         "Family suitability": f"Your family suitability preference (**{inputs['family_suitability']}**) contributed to the recommendation.",
     }
 
-    reasons = [templates[f] for f in top if f in templates]
+    reasons = []
+    for rank, f in enumerate(order, start=1):
+        if f in templates:
+            reasons.append(f"**{rank}.** {templates[f]}")
+        else:
+            reasons.append(f"**{rank}.** The factor **{f}** contributed to the model's recommendation.")
 
     if not reasons:
-        reasons.append("This property was the strongest overall match for your stated housing preferences.")
+        reasons.append("**1.** This property was the strongest overall match for your stated housing preferences.")
 
-    return reasons[:6]
+    return reasons
 
 
 HOUSE_CONFIG = {
