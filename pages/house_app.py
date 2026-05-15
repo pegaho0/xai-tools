@@ -41,7 +41,8 @@ result_ready_key, result_payload_key, mm_rating_key = init_result_state("house")
 st.title("🏠 House Recommendation")
 st.caption(f"{'Visual Explanation' if route['group'] == 'visual' else 'Text Explanation'} • Step {route['step']} of 3")
 st.caption(
-    "Provide your housing preferences, receive a recommendation, review how the AI made its decision, "
+    "Imagine you are looking to buy a house and use an AI system to help you find the most suitable option based on your preferences. "
+    "Provide your preferences, receive a recommendation, review how the AI made its decision, "
     "answer a few related questions, and continue to the final survey."
 )
 

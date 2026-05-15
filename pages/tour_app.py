@@ -44,7 +44,8 @@ st.caption(
     f"Step {route['step']} of 3"
 )
 st.caption(
-    "Provide your travel preferences, receive a recommendation, review how the AI made its decision, "
+    "Imagine you are planning a trip and use an AI system to help you choose the most suitable tour based on your preferences. "
+    "Provide your preferences, receive a recommendation, review how the AI made its decision, "
     "answer a few related questions, and continue to the final survey."
 )
 
