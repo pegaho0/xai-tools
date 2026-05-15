@@ -2972,7 +2972,7 @@ def _render_visual_explanation(config: dict, payload: dict):
     _inject_xai_dashboard_css()
     st.markdown("<div class='xai-dashboard-title'>How the model made this recommendation</div>", unsafe_allow_html=True)
     st.markdown(
-        "<div class='xai-dashboard-subtitle'>First, review the decision tree showing how the recommendation was generated. Then, examine the SHAP explanation highlighting the most influential input factors. You will answer questions related to these explanations in the next section.</div>",
+        "<div class='xai-dashboard-subtitle'>First, review the decision tree showing how the recommendation was generated. Then, examine the SHAP explanation graph highlighting the most influential input factors. You will answer questions related to these explanations in the next section.</div>",
         unsafe_allow_html=True,
     )
 
