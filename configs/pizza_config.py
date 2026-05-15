@@ -58,9 +58,8 @@ def result_formatter(payload: dict) -> str:
 
 
 def text_reason_builder(payload: dict) -> list[str]:
-    meta = payload["meta"]
     inputs = payload["inputs"]
-    top = payload["xai_agg"].head(6)["study_feature"].tolist()
+    order = payload["xai_agg"]["study_feature"].tolist()
 
     templates = {
         "Maximum price": (
@@ -83,12 +82,19 @@ def text_reason_builder(payload: dict) -> list[str]:
         ),
     }
 
-    reasons = [templates[f] for f in top if f in templates]
+    reasons = []
+    for rank, f in enumerate(order, start=1):
+        if f in templates:
+            reasons.append(f"**{rank}.** {templates[f]}")
+        else:
+            reasons.append(f"**{rank}.** The factor **{f}** contributed to the model's recommendation.")
 
     if not reasons:
-        reasons.append("This pizza was the strongest overall match for the combination of your stated preferences.")
+        reasons.append(
+            "**1.** This pizza was the strongest overall match for the combination of your stated preferences."
+        )
 
-    return reasons[:6]
+    return reasons
 
 
 PIZZA_CONFIG = {
@@ -100,9 +106,11 @@ PIZZA_CONFIG = {
     "result_title": "Recommended pizza",
     "min_shap_display": 4,
     "max_shap_display": 6,
-    "max_text_reasons": 6,
     "visual_caption": "This explanation summarizes the main preference factors the model used when selecting the recommended pizza.",
-    "text_caption": "This explanation summarizes the main preference factors that influenced the pizza recommendation.",
+    "text_caption": (
+        "Below, you can see the features that influenced the AI's recommendation, "
+        "ordered from the most influential (1) to the least influential (last)."
+    ),
     "result_formatter": result_formatter,
     "text_reason_builder": text_reason_builder,
 }

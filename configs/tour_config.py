@@ -51,7 +51,7 @@ def result_formatter(payload: dict) -> str:
 
 def text_reason_builder(payload: dict) -> list[str]:
     inputs = payload["inputs"]
-    top = payload["xai_agg"].head(6)["study_feature"].tolist()
+    order = payload["xai_agg"]["study_feature"].tolist()
 
     templates = {
         "Budget": f"Your budget (**${inputs['budget']} CAD**) shaped which tours were realistic matches.",
@@ -85,9 +85,11 @@ TOUR_CONFIG = {
     "result_title": "Recommended tour",
     "min_shap_display": 4,
     "max_shap_display": 6,
-    "max_text_reasons": 6,
     "visual_caption": "This explanation summarizes the main preference factors the model used when selecting the recommended tour.",
-    "text_caption": "This explanation summarizes the main preference factors that influenced the tour recommendation.",
+    "text_caption": (
+        "Below, you can see the features that influenced the AI's recommendation, "
+        "ordered from the most influential (1) to the least influential (last)."
+    ),
     "result_formatter": result_formatter,
     "text_reason_builder": text_reason_builder,
 }
