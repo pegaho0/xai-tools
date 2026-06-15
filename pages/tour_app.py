@@ -15,10 +15,12 @@ from app_core import (
     compute_shap_for_row,
     hide_sidebar_nav,
     init_result_state,
+    mark_analyze_phase_start,
     render_cad_text_input,
     render_choice_field,
     render_generic_result,
     render_mental_model_rating,
+    render_timed_continue_to_survey,
     timestamp_now,
     validate_and_store_route,
 )
@@ -227,6 +229,7 @@ if submit:
             "xai_agg": xai_agg,
             "xai_rank_list": xai_rank_list,
         }
+        mark_analyze_phase_start(TOUR_CONFIG["task_name"])
         st.rerun()
 
 if st.session_state[result_ready_key] and st.session_state[result_payload_key] is not None:
@@ -238,6 +241,6 @@ if st.session_state[result_ready_key] and st.session_state[result_payload_key] i
         payload,
         TOUR_CONFIG["task_name"],
     )
-    st.link_button("Continue to Survey", return_url, use_container_width=True)
+    render_timed_continue_to_survey(return_url, TOUR_CONFIG["task_name"])
 else:
     st.caption("Complete all sections and click Get recommendation to continue.")

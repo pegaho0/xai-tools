@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import shap
 import streamlit as st
+import streamlit.components.v1 as components
 from sklearn import tree
 
 
@@ -1571,6 +1572,9 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
         pizza_mm_..., pizza_xai_rank_...
         tour_mm_..., tour_xai_rank_...
         house_mm_..., house_xai_rank_...
+
+    ``AnalyzeTime`` (seconds spent on the explanation screen) is appended by
+    ``render_timed_continue_to_survey`` (server clock, refreshed about once per second).
     """
     step = str(route["step"]).strip()
 
@@ -1597,6 +1601,51 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
     params.update(build_qualtrics_params(payload, task_name))
 
     return f"{base_url}?{urlencode(params)}"
+
+
+def mark_analyze_phase_start(task_name: str) -> None:
+    """Record when the recommendation is ready (after a successful *Get recommendation*). Used for Qualtrics ``AnalyzeTime``."""
+    st.session_state[f"{task_name}_analyze_phase_start"] = time.time()
+
+
+def render_timed_continue_to_survey(
+    return_url: str,
+    task_name: str,
+    label: str = "Continue to Survey",
+) -> None:
+    """
+    Navigate to Qualtrics with ``AnalyzeTime`` (seconds, two decimals) on the query string.
+
+    Streamlit's ``components.html`` iframe sandbox blocks ``window.top.location``, so this
+    uses ``st.link_button`` plus a small periodic fragment refresh (when available) so the
+    href stays close to wall-clock time on the explanation screen without opening a new tab.
+    """
+    start_key = f"{task_name}_analyze_phase_start"
+    if start_key not in st.session_state:
+        st.session_state[start_key] = time.time()
+
+    def _build_url() -> str:
+        elapsed = max(0.0, time.time() - float(st.session_state[start_key]))
+        sep = "&" if ("?" in return_url) else "?"
+        return f"{return_url}{sep}AnalyzeTime={elapsed:.2f}"
+
+    fragment_fn = getattr(st, "fragment", None)
+    if callable(fragment_fn):
+        @fragment_fn(run_every=1.0)
+        def _refreshing_continue_link():
+            st.link_button(
+                label,
+                _build_url(),
+                use_container_width=True,
+            )
+
+        _refreshing_continue_link()
+    else:
+        st.link_button(
+            label,
+            _build_url(),
+            use_container_width=True,
+        )
 
 
 def _top_features(payload: dict, n: int = None, min_n: int = 0):
@@ -3021,9 +3070,16 @@ def _render_visual_explanation(config: dict, payload: dict):
     _render_readable_shap_card(payload, max_items=8)
 
 
-def render_full_width_continue_button(return_url: str, label: str = "Continue to Survey"):
+def render_full_width_continue_button(
+    return_url: str,
+    label: str = "Continue to Survey",
+    task_name: str | None = None,
+):
     """Render the survey button as a full-browser-width section, matching the decision-tree width."""
     _inject_xai_dashboard_css()
     st.markdown("<div class='xai-tree-full-bleed'><div class='xai-continue-shell'>", unsafe_allow_html=True)
-    st.link_button(label, return_url, use_container_width=True)
+    if task_name:
+        render_timed_continue_to_survey(return_url, task_name, label=label)
+    else:
+        st.link_button(label, return_url, use_container_width=True)
     st.markdown("</div></div>", unsafe_allow_html=True)
