@@ -3,6 +3,7 @@ import re
 import time
 import textwrap
 from pathlib import Path
+from typing import Optional
 from urllib.parse import urlencode
 
 import joblib
@@ -2790,7 +2791,7 @@ def _svg_multiline_text(
     cls,
     line_gap=22,
     anchor="middle",
-    font_size: float | None = None,
+    font_size: Optional[float] = None,
 ) -> str:
     """Emit SVG <text> lines. Optional font_size sets a presentation attribute (user units) so sizing survives Streamlit/CSS quirks."""
     parts = []
@@ -3073,7 +3074,7 @@ def _render_visual_explanation(config: dict, payload: dict):
 def render_full_width_continue_button(
     return_url: str,
     label: str = "Continue to Survey",
-    task_name: str | None = None,
+    task_name: Optional[str] = None,
 ):
     """Render the survey button as a full-browser-width section, matching the decision-tree width."""
     _inject_xai_dashboard_css()
