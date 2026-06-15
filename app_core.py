@@ -1424,11 +1424,11 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
         st.session_state[state_key] = {}
 
     st.markdown(
-        "<div class='mm-section-title'>Before seeing the AI explanation</div>",
+        "<div class='mm-section-title'>Your Expectations Before the AI Explanation</div>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<div class='mm-section-subtitle'>Please rate the importance of each feature in the AI’s decision on a scale from 1 (not important at all) to 7 (significantly important).</div>",
+        "<div class='mm-section-subtitle'>Before seeing the AI explanation, please rate how important you think each feature was in the AI's decision, from 1 (not important at all) to 7 (extremely important).</div>",
         unsafe_allow_html=True,
     )
 
@@ -1665,7 +1665,29 @@ def _render_visual_explanation(config: dict, payload: dict):
     render_hybrid_shap_tree_explanation(payload, config)
 
 def _render_text_explanation(config: dict, payload: dict):
-    st.subheader("Why this recommendation was made")
+    """Textual XAI: same surrogate-tree path and SHAP semantics as the visual condition, text presentation only."""
+    _inject_xai_dashboard_css()
+    st.markdown("<div class='xai-dashboard-title'>How the model made this recommendation</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='xai-dashboard-subtitle'>First, carefully review the written explanation of how the recommendation was generated, paying attention to each step in the decision process. Then, read the SHAP explanation describing the most influential factors behind the recommendation. You will answer questions about these explanations in the next section.</div>",
+        unsafe_allow_html=True,
+    )
+
+    ctx = _get_tree_path_context(payload, config)
+    if ctx is not None:
+        _render_path_walkthrough(ctx, payload)
+    else:
+        st.warning(
+            "Textual decision-tree explanation could not be shown. "
+            "Re-train the model bundle with surrogate_tree included."
+        )
+
+    st.markdown(
+        '<p style="font-weight:850;font-size:1.2rem;color:#0F172A;margin:1.1rem 0 0.35rem 0;line-height:1.35;">'
+        "Feature importance (SHAP)"
+        "</p>",
+        unsafe_allow_html=True,
+    )
     st.caption(config["text_caption"])
 
     builder = config.get("text_reason_builder")
@@ -1867,7 +1889,7 @@ def _render_path_walkthrough(ctx: dict, payload: dict):
             <div class='xai-path-card final'>
                 <div class='xai-step-badge final'>Final result</div>
                 <div class='xai-path-question'>Recommended option: {_xai_html(recommended_name)}</div>
-                <div class='xai-path-text'>The green path ends here, so this is the option shown to the user.</div>
+                <div class='xai-path-text'>This is the end of the decision path for your inputs—the same final node as in the visual tree.</div>
             </div>
             """)
         else:
@@ -1886,7 +1908,7 @@ def _render_path_walkthrough(ctx: dict, payload: dict):
         <div class='xai-panel-header'>
             <div>
                 <div class='xai-panel-title'>🧭 Step-by-step decision path</div>
-                <div class='xai-panel-subtitle'>Follow the green path from the first rule to the final recommendation.</div>
+                <div class='xai-panel-subtitle'>Same route as the visual decision tree: follow each split from the first rule to the final recommendation.</div>
             </div>
             <span class='xai-pill-green'>Selected path</span>
         </div>
@@ -2563,6 +2585,17 @@ def _inject_xai_dashboard_css():
         .xai-shap-track { height:8px; border-radius:999px; background:#E8EEF5; overflow:hidden; margin-top:8px; }
         .xai-shap-fill { height:8px; border-radius:999px; background:linear-gradient(90deg,#2563EB,#60A5FA); }
         .xai-tip { margin-top:14px; border:1px solid #E2E8F0; background:#F8FAFC; border-radius:14px; padding:12px 14px; color:#475569; font-size:13px; line-height:1.5; }
+        .xai-pill-green { background:#ECFDF5; color:#166534; border:1px solid #BBF7D0; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:800; white-space:nowrap; }
+        .xai-path-list { position:relative; }
+        .xai-path-card { border-radius:16px; padding:14px 16px; margin:12px 0; box-shadow:0 2px 10px rgba(15,23,42,0.045); }
+        .xai-path-card.selected { border:2px solid #16A34A; background:#F0FDF4; }
+        .xai-path-card.final { border:2px solid #16A34A; background:#DCFCE7; }
+        .xai-step-badge { display:inline-block; color:#166534; background:#DCFCE7; border:1px solid #BBF7D0; border-radius:999px; padding:4px 9px; font-size:11px; font-weight:850; text-transform:uppercase; }
+        .xai-step-badge.final { color:#14532D; background:#BBF7D0; }
+        .xai-path-question { font-size:16px; font-weight:850; color:#0F172A; margin-top:8px; }
+        .xai-path-text { font-size:13.5px; color:#475569; margin-top:6px; line-height:1.45; }
+        .xai-path-branch { font-size:13.5px; color:#166534; margin-top:8px; }
+        .xai-path-meta { font-size:12.5px; color:#64748B; margin-top:7px; line-height:1.45; }
 
         /* Only this section is full browser width. */
         .xai-tree-full-bleed {
