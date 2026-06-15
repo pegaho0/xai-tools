@@ -11,7 +11,6 @@ import app_core
 
 from app_core import (
     aggregate_shap_to_study_features,
-    build_return_url,
     compute_shap_for_row,
     hide_sidebar_nav,
     init_result_state,
@@ -176,7 +175,6 @@ if submit:
 if st.session_state[result_ready_key] and st.session_state[result_payload_key] is not None:
     payload = st.session_state[result_payload_key]
     render_generic_result(route, PIZZA_CONFIG, payload)
-    return_url = build_return_url(route, PIZZA_CONFIG["survey_map"], payload, PIZZA_CONFIG["task_name"])
-    render_timed_continue_to_survey(return_url, PIZZA_CONFIG["task_name"])
+    render_timed_continue_to_survey(route, PIZZA_CONFIG["survey_map"], payload, PIZZA_CONFIG["task_name"])
 else:
     st.caption("Complete all sections and click Get recommendation to continue.")

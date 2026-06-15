@@ -1574,8 +1574,10 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
         tour_mm_..., tour_xai_rank_...
         house_mm_..., house_xai_rank_...
 
-    ``AnalyzeTime`` (seconds spent on the explanation screen) is appended by
-    ``render_timed_continue_to_survey`` (server clock, refreshed about once per second).
+    ``AnalyzeTime`` (seconds on the explanation screen) is included in the query string when
+    ``mark_analyze_phase_start`` has run; it is placed **early** (right after ``pid``) so very long
+    URLs are less likely to lose it to length limits. ``render_timed_continue_to_survey`` refreshes
+    the link about once per second so the value stays current.
     """
     step = str(route["step"]).strip()
 
@@ -1585,21 +1587,30 @@ def build_return_url(route: dict, survey_map: dict, payload: dict, task_name: st
 
     base_url = survey_map[step]
 
-    params = {
-        "pid": route["pid"],
-        "group": route["group"],
-        "app1": route["app1"],
-        "app2": route["app2"],
-        "app3": route["app3"],
-        "step": route["step"],
-        "current_app": route["app"],
-        "task": task_name,
-        "rec_id": payload.get("recommended_id", ""),
-        "rec_name": payload.get("recommended_name", ""),
-        "ts": payload.get("timestamp", ""),
-    }
+    extra = build_qualtrics_params(payload, task_name)
 
-    params.update(build_qualtrics_params(payload, task_name))
+    params = {"pid": route["pid"]}
+
+    start_key = f"{task_name}_analyze_phase_start"
+    if start_key in st.session_state:
+        elapsed = max(0.0, time.time() - float(st.session_state[start_key]))
+        params["AnalyzeTime"] = f"{elapsed:.2f}"
+
+    params.update(
+        {
+            "group": route["group"],
+            "app1": route["app1"],
+            "app2": route["app2"],
+            "app3": route["app3"],
+            "step": route["step"],
+            "current_app": route["app"],
+            "task": task_name,
+            "rec_id": payload.get("recommended_id", ""),
+            "rec_name": payload.get("recommended_name", ""),
+            "ts": payload.get("timestamp", ""),
+        }
+    )
+    params.update(extra)
 
     return f"{base_url}?{urlencode(params)}"
 
@@ -1610,25 +1621,22 @@ def mark_analyze_phase_start(task_name: str) -> None:
 
 
 def render_timed_continue_to_survey(
-    return_url: str,
+    route: dict,
+    survey_map: dict,
+    payload: dict,
     task_name: str,
     label: str = "Continue to Survey",
 ) -> None:
     """
-    Navigate to Qualtrics with ``AnalyzeTime`` (seconds, two decimals) on the query string.
+    Show **Continue to Survey** with a Qualtrics URL that includes ``AnalyzeTime`` (seconds).
 
-    Streamlit's ``components.html`` iframe sandbox blocks ``window.top.location``, so this
-    uses ``st.link_button`` plus a small periodic fragment refresh (when available) so the
-    href stays close to wall-clock time on the explanation screen without opening a new tab.
+    ``AnalyzeTime`` is set inside ``build_return_url`` (early in the query string). When
+    ``st.fragment`` is available, the link is refreshed about once per second so the value
+    stays close to the time spent on the explanation screen.
     """
     start_key = f"{task_name}_analyze_phase_start"
     if start_key not in st.session_state:
         st.session_state[start_key] = time.time()
-
-    def _build_url() -> str:
-        elapsed = max(0.0, time.time() - float(st.session_state[start_key]))
-        sep = "&" if ("?" in return_url) else "?"
-        return f"{return_url}{sep}AnalyzeTime={elapsed:.2f}"
 
     fragment_fn = getattr(st, "fragment", None)
     if callable(fragment_fn):
@@ -1636,7 +1644,7 @@ def render_timed_continue_to_survey(
         def _refreshing_continue_link():
             st.link_button(
                 label,
-                _build_url(),
+                build_return_url(route, survey_map, payload, task_name),
                 use_container_width=True,
             )
 
@@ -1644,7 +1652,7 @@ def render_timed_continue_to_survey(
     else:
         st.link_button(
             label,
-            _build_url(),
+            build_return_url(route, survey_map, payload, task_name),
             use_container_width=True,
         )
 
@@ -3072,15 +3080,14 @@ def _render_visual_explanation(config: dict, payload: dict):
 
 
 def render_full_width_continue_button(
-    return_url: str,
+    route: dict,
+    survey_map: dict,
+    payload: dict,
+    task_name: str,
     label: str = "Continue to Survey",
-    task_name: Optional[str] = None,
 ):
     """Render the survey button as a full-browser-width section, matching the decision-tree width."""
     _inject_xai_dashboard_css()
     st.markdown("<div class='xai-tree-full-bleed'><div class='xai-continue-shell'>", unsafe_allow_html=True)
-    if task_name:
-        render_timed_continue_to_survey(return_url, task_name, label=label)
-    else:
-        st.link_button(label, return_url, use_container_width=True)
+    render_timed_continue_to_survey(route, survey_map, payload, task_name, label=label)
     st.markdown("</div></div>", unsafe_allow_html=True)
