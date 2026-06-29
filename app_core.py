@@ -1430,7 +1430,7 @@ def render_mental_model_rating(feature_labels: list, state_key: str):
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<div class='mm-section-subtitle'>Before seeing the AI explanation, please rate how important you think each feature was in the AI's decision, from 1 (not important at all) to 7 (extremely important).</div>",
+        "<div class='mm-section-subtitle'>Before seeing the AI explanation, please rate how important you think each feature will be in the AI's decision, from 1 (not important at all) to 7 (extremely important).</div>",
         unsafe_allow_html=True,
     )
 
